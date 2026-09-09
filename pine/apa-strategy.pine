@@ -1,0 +1,93 @@
+//@version=6
+strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, initial_capital=10000, currency=currency.USD)
+
+// Vereenvoudigde, testbare vertaling van docs/apa-signal-strategy.md.
+// Bekende versimpelingen t.o.v. de cursus (zie disclaimer in dat bestand):
+// - Volume Profile / POC worden niet gebruikt (geen native Pine-toegang).
+// - Supply/demand- en liquiditeitszones worden niet gebruikt.
+// - Take-profit is een vaste R:R-multiple i.p.v. de eerstvolgende
+//   liquiditeitszone/swing-high/low.
+// Doel: een eerste, narekenbare versie om tegen echte MEXC-historie in de
+// Strategy Tester te draaien en daarna samen te verfijnen.
+
+// ── Inputs ──────────────────────────────────────────────────────────────
+htf            = input.timeframe("D", "HTF voor trendbepaling")
+htfEmaLen      = input.int(50, "HTF EMA-lengte (trendfilter)")
+impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
+impulseAtrMult = input.float(1.8, "Impuls-drempel (x ATR)")
+atrLen         = input.int(14, "ATR-lengte")
+slBufferAtrMult = input.float(0.25, "SL-buffer (x ATR) voorbij de void")
+rrMultiple     = input.float(2.0, "Take-profit R:R-multiple")
+maxBarsWaitRetest = input.int(40, "Max bars wachten op retest na impuls")
+
+atr = ta.atr(atrLen)
+
+// ── HTF-trend (Module: Scalpen APA — eerst trend, dan LTF-entry) ────────
+htfClose = request.security(syminfo.tickerid, htf, close[1], lookahead=barmerge.lookahead_off)
+htfEma   = request.security(syminfo.tickerid, htf, ta.ema(close, htfEmaLen)[1], lookahead=barmerge.lookahead_off)
+htfUptrend   = htfClose > htfEma
+htfDowntrend = htfClose < htfEma
+
+// ── VWAP-confirmatie ──────────────────────────────────────────────────
+vwapVal = ta.vwap(hlc3)
+
+// ── Impuls-detectie: netto beweging over impulseLookback bars > drempel ─
+priceChange = close - close[impulseLookback]
+impulseThreshold = atr * impulseAtrMult
+isImpulseUp   = priceChange > impulseThreshold
+isImpulseDown = priceChange < -impulseThreshold
+
+// ── Void/backtest-zone bijhouden ─────────────────────────────────────
+var float voidHigh = na
+var float voidLow = na
+var int   voidDir = 0        // 1 = mark-up (long later), -1 = mark-down (short later)
+var int   impulseBarIndex = na
+var bool  waitingForRetest = false
+
+if isImpulseUp and not waitingForRetest
+    voidLow := low[impulseLookback]
+    voidHigh := high
+    voidDir := 1
+    impulseBarIndex := bar_index
+    waitingForRetest := true
+
+if isImpulseDown and not waitingForRetest
+    voidHigh := high[impulseLookback]
+    voidLow := low
+    voidDir := -1
+    impulseBarIndex := bar_index
+    waitingForRetest := true
+
+if waitingForRetest and (bar_index - impulseBarIndex > maxBarsWaitRetest)
+    waitingForRetest := false
+    voidDir := 0
+
+// ── Retest = entry-signaal ───────────────────────────────────────────
+retestLong  = waitingForRetest and voidDir == 1  and low  <= voidHigh and close > voidLow
+retestShort = waitingForRetest and voidDir == -1 and high >= voidLow  and close < voidHigh
+
+longConfirmed  = retestLong  and close > vwapVal and htfUptrend
+shortConfirmed = retestShort and close < vwapVal and htfDowntrend
+
+// ── Entries + SL/TP ───────────────────────────────────────────────────
+if longConfirmed and strategy.position_size == 0
+    slPrice = voidLow - atr * slBufferAtrMult
+    riskPerUnit = close - slPrice
+    tpPrice = close + riskPerUnit * rrMultiple
+    strategy.entry("APA Long", strategy.long)
+    strategy.exit("APA Long Exit", "APA Long", stop=slPrice, limit=tpPrice)
+    waitingForRetest := false
+    voidDir := 0
+
+if shortConfirmed and strategy.position_size == 0
+    slPrice = voidHigh + atr * slBufferAtrMult
+    riskPerUnit = slPrice - close
+    tpPrice = close - riskPerUnit * rrMultiple
+    strategy.entry("APA Short", strategy.short)
+    strategy.exit("APA Short Exit", "APA Short", stop=slPrice, limit=tpPrice)
+    waitingForRetest := false
+    voidDir := 0
+
+// ── Visuals ───────────────────────────────────────────────────────────
+plot(vwapVal, "VWAP", color=color.orange)
+bgcolor(waitingForRetest ? (voidDir == 1 ? color.new(color.green, 90) : color.new(color.red, 90)) : na)
