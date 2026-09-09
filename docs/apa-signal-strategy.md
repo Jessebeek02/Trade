@@ -24,7 +24,7 @@ kansen op de chart volgens een vast patroon, met bijbehorend risico/R:R.
    terugtest van een mark-up-void, short bij terugtest van een
    mark-down-void).
 
-## HTF/LTF — verplichte twee-staps-check
+## HTF/MTF/LTF — verplichte drie-staps-check
 
 Zoals in Module 3 (Scalpen APA): eerst trend bepalen op een hoger
 timeframe, dán pas op een lager timeframe naar een concrete entry zoeken.
@@ -36,8 +36,12 @@ recente impuls, niet uit een voorkeur.
    weken/maanden. Bepaalt de toegestane richting (in een HTF-uptrend
    alleen long-setups meewegen, in een HTF-downtrend alleen short, tenzij
    er een duidelijke trendwisseling zichtbaar is).
-2. **LTF (15m)** — de daadwerkelijke impuls/void/retest en het
-   entry-moment binnen die toegestane richting.
+2. **MTF (15m)** — tussenliggende confirmatie: bevestigt de 15m-trend/
+   -prijsactie dezelfde richting als de HTF? Zo niet, geen setup nemen ook
+   al klopt de 3m-entry op zich.
+3. **LTF (3m)** — de daadwerkelijke impuls/void/retest en het
+   entry-moment binnen de op stap 1+2 toegestane richting. Entry, SL en
+   TP worden bepaald op deze timeframe.
 
 ## Confirmaties (voor je een setup als "kansrijk" markeert)
 
@@ -47,8 +51,8 @@ recente impuls, niet uit een voorkeur.
   en ligt het Point of Control niet middenin de void (zou de impuls-these
   tegenspreken)?
 - **VPSV (session volume)** — bevestigt het sessievolume de impuls-richting?
-- **HTF-trend** — is de retest in lijn met de trend op de Daily (zie
-  hierboven)?
+- **HTF/MTF-trend** — is de retest in lijn met de trend op zowel Daily als
+  15m (zie hierboven)?
 - **Supply/Demand & liquiditeit** — ligt de void in of nabij een
   supply/demand-zone of liquiditeitszone?
 

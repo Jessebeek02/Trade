@@ -43,29 +43,33 @@ skill met onderstaande prompt (pas het symbool/timeframe aan):
 /loop 10m (0) Meld eerst het huidige tijdstip via het Bash-commando
 date '+%H:%M' en meld "Check om <tijd> — volgende check rond <tijd+10m>".
 Check daarna de TradingView-chart op een APA-signaal volgens
-docs/apa-signal-strategy.md in deze repo, met de verplichte HTF/LTF-stap
-uit dat bestand. Stappen: (1) onthoud via chart_get_state het huidige
-symbool en timeframe (dit is de LTF waar je aan het eind naar
-terugschakelt). (2) HTF: chart_set_timeframe naar Daily (D), gebruik
-data_get_ohlcv om de trend en eerdere impulsen/voids van de afgelopen
-weken/maanden te bepalen, en leg vast welke richting (long/short) op dit
-moment is toegestaan. (3) LTF: chart_set_timeframe terug naar 15,
+docs/apa-signal-strategy.md in deze repo, met de verplichte
+HTF/MTF/LTF-stap uit dat bestand. Stappen: (1) onthoud via
+chart_get_state het huidige symbool en timeframe (dit is de LTF waar je
+aan het eind naar terugschakelt). (2) HTF: chart_set_timeframe naar
+Daily (D), gebruik data_get_ohlcv om de trend en eerdere impulsen/voids
+van de afgelopen weken/maanden te bepalen, en leg vast welke richting
+(long/short) op dit moment is toegestaan. (3) MTF: chart_set_timeframe
+naar 15, gebruik data_get_ohlcv om te bevestigen dat de 15m-trend/
+-prijsactie dezelfde richting bevestigt als stap 2 — zo niet: stop hier,
+GEEN setup, ga direct naar stap 5. (4) LTF: chart_set_timeframe naar 3,
 gebruik data_get_ohlcv om te zoeken naar: een recente impuls in de op
-stap 2 toegestane richting, een bijbehorende void/backtest-zone, en of
-de prijs nu die zone opnieuw test. Check VWAP via data_get_study_values
-en eventuele supply/demand-/liquiditeitszones via
-data_get_pine_lines/pine_boxes als confirmatie. (4) chart_set_timeframe
-terug naar het timeframe uit stap 1, ook als er geen setup is. Als er
-een kwalificerende setup is: stuur DIRECT een macOS-melding met een
-Bash-commando in de vorm osascript -e 'display notification "<symbool>
-<richting>, entry <entry>, SL <sl>, TP <tp>, R:R <rr>, risico:
-<laag/gemiddeld/hoog>" with title "APA-signaal" sound name "Glass"' (vul
-de echte waardes in), en meld daarna dezelfde info hier in de chat:
-symbool, timeframe, richting, entry/SL/TP, R:R, welke confirmaties
-aanwezig/afwezig zijn, de HTF-trend die de richting toestond, en een
-risicoclassificatie — met de disclaimer dat dit signalering is, geen
-advies. Als er geen setup is: meld kort "geen signaal" en stop, GEEN
-melding sturen, geen verdere actie nodig.
+stap 2+3 toegestane richting, een bijbehorende void/backtest-zone, en of
+de prijs nu die zone opnieuw test. Bepaal entry/SL/TP op basis van deze
+3m-data. Check VWAP via data_get_study_values en eventuele
+supply/demand-/liquiditeitszones via data_get_pine_lines/pine_boxes als
+confirmatie. (5) chart_set_timeframe terug naar het timeframe uit stap
+1, ook als er geen setup is. Als er een kwalificerende setup is: stuur
+DIRECT een macOS-melding met een Bash-commando in de vorm osascript -e
+'display notification "<symbool> <richting>, entry <entry>, SL <sl>, TP
+<tp>, R:R <rr>, risico: <laag/gemiddeld/hoog>" with title "APA-signaal"
+sound name "Glass"' (vul de echte waardes in), en meld daarna dezelfde
+info hier in de chat: symbool, timeframe (3m), richting, entry/SL/TP,
+R:R, welke confirmaties aanwezig/afwezig zijn, de HTF/MTF-trend die de
+richting toestond, en een risicoclassificatie — met de disclaimer dat
+dit signalering is, geen advies. Als er geen setup is (op MTF- of
+LTF-niveau): meld kort "geen signaal" en stop, GEEN melding sturen, geen
+verdere actie nodig.
 ```
 
 Dit her-checkt elke 10 minuten (pas het interval aan naar smaak — bedenk

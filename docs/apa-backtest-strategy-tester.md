@@ -24,7 +24,9 @@ samen te verfijnen.
 
 ## Laden in TradingView
 
-1. Open TradingView Desktop, je MEXC BTC/USDT-symbool.
+1. Open TradingView Desktop, je MEXC BTC/USDT-symbool, timeframe **3m**
+   (dit is de LTF waar de strategie op draait — HTF/Daily en MTF/15m
+   worden intern opgehaald, daar hoef je de chart niet voor te wisselen).
 2. Open de **Pine Editor** (tabblad onderaan het scherm).
 3. Nieuw script → plak de inhoud van `pine/apa-strategy.pine`.
 4. Klik **"Add to chart"** — de strategie draait nu automatisch terug

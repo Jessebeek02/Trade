@@ -9,11 +9,17 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   liquiditeitszone/swing-high/low.
 // Doel: een eerste, narekenbare versie om tegen echte MEXC-historie in de
 // Strategy Tester te draaien en daarna samen te verfijnen.
+//
+// Toepassen op de **3m-chart** (LTF, waar entry/SL/TP op bepaald worden).
+// HTF (Daily) en MTF (15m) worden intern via request.security opgehaald
+// als confirmatielagen — daar hoef je de chart niet voor te wisselen.
 
 // ── Inputs ──────────────────────────────────────────────────────────────
 htf            = input.timeframe("D", "HTF voor trendbepaling")
 htfEmaLen      = input.int(50, "HTF EMA-lengte (trendfilter)")
-impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
+mtf            = input.timeframe("15", "MTF voor tussenliggende confirmatie")
+mtfEmaLen      = input.int(50, "MTF EMA-lengte (trendfilter)")
+impulseLookback = input.int(3, "Aantal bars voor impuls-detectie (op LTF)")
 impulseAtrMult = input.float(1.8, "Impuls-drempel (x ATR)")
 atrLen         = input.int(14, "ATR-lengte")
 slBufferAtrMult = input.float(0.25, "SL-buffer (x ATR) voorbij de void")
@@ -22,11 +28,17 @@ maxBarsWaitRetest = input.int(40, "Max bars wachten op retest na impuls")
 
 atr = ta.atr(atrLen)
 
-// ── HTF-trend (Module: Scalpen APA — eerst trend, dan LTF-entry) ────────
+// ── HTF-trend (Daily) — macro-richting ──────────────────────────────────
 htfClose = request.security(syminfo.tickerid, htf, close[1], lookahead=barmerge.lookahead_off)
 htfEma   = request.security(syminfo.tickerid, htf, ta.ema(close, htfEmaLen)[1], lookahead=barmerge.lookahead_off)
 htfUptrend   = htfClose > htfEma
 htfDowntrend = htfClose < htfEma
+
+// ── MTF-trend (15m) — tussenliggende confirmatie ────────────────────────
+mtfClose = request.security(syminfo.tickerid, mtf, close[1], lookahead=barmerge.lookahead_off)
+mtfEma   = request.security(syminfo.tickerid, mtf, ta.ema(close, mtfEmaLen)[1], lookahead=barmerge.lookahead_off)
+mtfUptrend   = mtfClose > mtfEma
+mtfDowntrend = mtfClose < mtfEma
 
 // ── VWAP-confirmatie ──────────────────────────────────────────────────
 vwapVal = ta.vwap(hlc3)
@@ -66,8 +78,8 @@ if waitingForRetest and (bar_index - impulseBarIndex > maxBarsWaitRetest)
 retestLong  = waitingForRetest and voidDir == 1  and low  <= voidHigh and close > voidLow
 retestShort = waitingForRetest and voidDir == -1 and high >= voidLow  and close < voidHigh
 
-longConfirmed  = retestLong  and close > vwapVal and htfUptrend
-shortConfirmed = retestShort and close < vwapVal and htfDowntrend
+longConfirmed  = retestLong  and close > vwapVal and htfUptrend   and mtfUptrend
+shortConfirmed = retestShort and close < vwapVal and htfDowntrend and mtfDowntrend
 
 // ── Entries + SL/TP ───────────────────────────────────────────────────
 if longConfirmed and strategy.position_size == 0
