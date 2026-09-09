@@ -19,36 +19,25 @@ kansen op de chart volgens een vast patroon, met bijbehorend risico/R:R.
    een prijsrange waar weinig tot geen handel plaatsvond tijdens de impuls
    zelf (te herkennen aan een gat in het volume-profiel / weinig candles
    met overlap).
-3. **Retest = entry-signaal** — wanneer de prijs teruggaat naar die void en
-   deze opnieuw test, is dát het potentiële instapmoment (long bij
-   terugtest van een mark-up-void, short bij terugtest van een
-   mark-down-void).
+3. **De void (oksel) ís de entry-zone** — zodra de impuls een void
+   achterlaat, is die zone zelf waar je instapt (long bij een
+   mark-up-void, short bij een mark-down-void) — als een limit order in
+   de oksel, niet pas na een latere "reactie" of tweede bevestiging. (Dit
+   is een correctie op een eerdere versie van dit document die een
+   "wacht op duidelijke reactie"-regel bevatte — dat was nooit uit de
+   cursus-audio bevestigd en was een onterechte verstrenging.)
 
-## LTF (3m) — waar een setup op gebaseerd wordt
+## Eén meldingsmoment: zodra de oksel ontstaat
 
-De daadwerkelijke impuls/void/retest en het entry-moment worden altijd op
-**3m** gezocht, bij elke check, in beide richtingen (long én short) — er
-wordt niet vooraf gefilterd op een "toegestane richting". Vind je op 3m
-een impuls + bijbehorende void + een retest daarvan: dat ís de setup.
-Entry, SL en TP worden op deze 3m-data bepaald. Geen impuls/void/retest
-gevonden: geen setup, klaar — dit is de enige harde voorwaarde.
-
-### Twee meldingsmomenten
-
-1. **Void gevormd** (vroeg signaal) — zodra een impuls + void gezien
-   wordt, ook al is er nog geen retest: meld direct de zone-grenzen
-   (voidLow/voidHigh) en richting, zodat je zelf alvast een limit order
-   in die zone kunt zetten in plaats van te wachten op de bevestigde
-   retest-melding (die door de 10-min-check-interval een paar minuten
-   kan achterlopen op het echte moment). Elke void wordt maar **één
-   keer** zo gemeld — niet elke check opnieuw zolang er nog geen retest
-   is.
-2. **Retest bevestigd** (het bestaande entry-signaal) — zodra de prijs
-   de void retest mét een duidelijke reactie (zie Entry/SL/TP hieronder):
-   de volledige melding met entry/SL/TP, R:R en confirmaties.
-
-Beide zijn signalering, geen advies — een vroege void-melding is geen
-garantie dat de retest ook echt komt of reageert.
+Er is precies één signaalmoment, zoals in de cursus: de oksel ontstaat →
+de bot analyseert HTF, MTF en LTF → de bot checkt de confirmaties → er
+rolt één complete setup uit (entry in de oksel, SL, TP, risico). Dit
+gebeurt direct zodra de void gezien wordt op **3m** (in beide
+richtingen, long én short, geen voorkeur) — niet pas nadat de prijs 'm
+al opnieuw geraakt heeft. Elke oksel wordt maar **één keer** zo gemeld,
+niet elke check opnieuw zolang dezelfde oksel nog niet geraakt/ongeldig
+verklaard is. Geen impuls/void gevonden: geen setup, klaar — dit is de
+enige harde voorwaarde.
 
 ## Confirmaties — informatief, geen poort
 
@@ -75,8 +64,9 @@ HTF/VWAP): markeer als hoog risico, ook al klopt het 3m-patroon zelf.
 
 ## Entry / SL / TP — "1.1.2-regel" (best-inschatting, te verfijnen)
 
-- **Entry**: bij de eerste duidelijke reactie op de retest van de void
-  (niet blind bij de eerste aanraking).
+- **Entry**: in de oksel zelf — de rand van de void aan de kant waar de
+  prijs vandaan kwam (dus het eerste punt waar de prijs de zone weer zou
+  raken), als een limit order. Niet pas na een latere reactie.
 - **Stop-loss**: net voorbij de void, op basis van prijsactie (niet een
   vaste pip/procent-afstand) — zie ook de Supply/Demand/Liquiditeit-module:
   SL net buiten de zone die de these ongeldig zou maken.
