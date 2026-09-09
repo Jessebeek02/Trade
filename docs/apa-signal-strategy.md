@@ -33,6 +33,23 @@ een impuls + bijbehorende void + een retest daarvan: dat ís de setup.
 Entry, SL en TP worden op deze 3m-data bepaald. Geen impuls/void/retest
 gevonden: geen setup, klaar — dit is de enige harde voorwaarde.
 
+### Twee meldingsmomenten
+
+1. **Void gevormd** (vroeg signaal) — zodra een impuls + void gezien
+   wordt, ook al is er nog geen retest: meld direct de zone-grenzen
+   (voidLow/voidHigh) en richting, zodat je zelf alvast een limit order
+   in die zone kunt zetten in plaats van te wachten op de bevestigde
+   retest-melding (die door de 10-min-check-interval een paar minuten
+   kan achterlopen op het echte moment). Elke void wordt maar **één
+   keer** zo gemeld — niet elke check opnieuw zolang er nog geen retest
+   is.
+2. **Retest bevestigd** (het bestaande entry-signaal) — zodra de prijs
+   de void retest mét een duidelijke reactie (zie Entry/SL/TP hieronder):
+   de volledige melding met entry/SL/TP, R:R en confirmaties.
+
+Beide zijn signalering, geen advies — een vroege void-melding is geen
+garantie dat de retest ook echt komt of reageert.
+
 ## Confirmaties — informatief, geen poort
 
 Zodra er een setup is (zie hierboven), worden onderstaande confirmaties

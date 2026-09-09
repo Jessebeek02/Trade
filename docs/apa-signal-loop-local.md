@@ -43,40 +43,60 @@ skill met onderstaande prompt (pas het symbool/timeframe aan):
 /loop 10m (0) Meld eerst het huidige tijdstip via het Bash-commando
 date '+%H:%M' en meld "Check om <tijd> — volgende check rond <tijd+10m>".
 Check daarna de TradingView-chart op een APA-signaal volgens
-docs/apa-signal-strategy.md in deze repo. Stappen: (1) onthoud via
-chart_get_state het huidige symbool en timeframe (hier schakel je aan
-het eind naar terug). (2) chart_set_timeframe naar 3. Gebruik
-data_get_ohlcv om te zoeken naar een setup in BEIDE richtingen (long én
-short, geen voorkeur): een recente impuls, een bijbehorende void/
-backtest-zone, en of de prijs nu die zone opnieuw test. Vind je dit
-niet: er is geen setup, ga direct naar stap 4 (log + geen melding). (3)
-Is er wél een setup: bepaal entry/SL/TP op basis van deze 3m-data. Check
-dan ALLE confirmaties en beoordeel elk met ✅ (bevestigt), ⚠️ (onduidelijk/
-zwak) of ❌ (bevestigt niet) — dit blokkeert de setup niet, het is puur
-voor de risicoclassificatie: VWAP en Volume Profile/POC en VPSV en
+docs/apa-signal-strategy.md in deze repo (twee meldingsmomenten: void
+gevormd, en retest bevestigd). Stappen: (1) onthoud via chart_get_state
+het huidige symbool en timeframe (hier schakel je aan het eind naar
+terug). (2) chart_set_timeframe naar 3. Gebruik data_get_ohlcv om te
+zoeken naar een impuls + bijbehorende void/backtest-zone in BEIDE
+richtingen (long én short, geen voorkeur). Geen impuls/void gevonden:
+leeg logs/apa-last-void.txt (echo -n "" > logs/apa-last-void.txt), log
+(stap 6) en klaar, geen melding. (3) Wél een impuls/void gevonden: lees
+logs/apa-last-void.txt. Staat daar al dezelfde richting+zone in (dus al
+eerder gemeld) — sla de void-melding over, ga naar stap 4. Is het een
+NIEUWE of ANDERE void (bestand leeg of andere waardes): stuur DIRECT een
+macOS-melding met een Bash-commando in de vorm osascript -e 'display
+notification "<symbool> <richting>-void: <voidLow>–<voidHigh>. Mogelijke
+limit-entry-zone, nog geen retest." with title "APA: void gevormd" sound
+name "Pop"' (vul de echte waardes in), meld dit ook kort in de chat, en
+schrijf de nieuwe waarde weg met echo "<richting>,<voidLow>,<voidHigh>"
+> logs/apa-last-void.txt. (4) Check of de prijs deze void NU al retest
+mét een duidelijke reactie (niet blind bij de eerste aanraking). Geen
+retest/reactie: log (stap 6) en klaar, geen verdere melding. Wél een
+retest met reactie: dit is de volledige entry-setup — bepaal entry/SL/TP
+op basis van de 3m-data, leeg logs/apa-last-void.txt (deze void is nu
+"afgehandeld"), en ga naar stap 5. (5) Check ALLE confirmaties en
+beoordeel elk met ✅ (bevestigt), ⚠️ (onduidelijk/zwak) of ❌ (bevestigt
+niet) — dit blokkeert de setup niet, het is puur voor de
+risicoclassificatie: VWAP en Volume Profile/POC en VPSV en
 Supply/Demand-liquiditeitszones via data_get_study_values/
 data_get_pine_lines/data_get_pine_boxes op de 3m-chart; daarna kort
 chart_set_timeframe naar 15 voor de MTF-trend, en naar D (Daily) voor de
 HTF-trend en eerdere impulsen/voids van de afgelopen weken/maanden
-(gebruik data_get_ohlcv op beide). (4) chart_set_timeframe terug naar
-het timeframe uit stap 1, ook als er geen setup is. Log daarna ALTIJD
-(elke check, ook bij geen setup) een regel in logs/apa-signal-log.csv
-via een Bash-commando in de vorm echo "<timestamp iso>,<richting: long/
-short/geen>,<htf: ✅/⚠️/❌/n.v.t.>,<mtf: ✅/⚠️/❌/n.v.t.>,<vwap: ✅/⚠️/❌/
-n.v.t.>,<volume_profile: ✅/⚠️/❌/n.v.t.>,<vpsv: ✅/⚠️/❌/n.v.t.>,<supply_
-demand: ✅/⚠️/❌/n.v.t.>,<signaal: ja/nee>" >> logs/apa-signal-log.csv
-(n.v.t. bij geen setup; vul de echte waardes in, geen spaties in de
-velden). Is er een setup (ongeacht hoeveel confirmaties ✅ zijn): stuur
-DIRECT een macOS-melding met een Bash-commando in de vorm osascript -e
-'display notification "<symbool> <richting>, entry <entry>, SL <sl>, TP
-<tp>, R:R <rr>, risico: <laag/gemiddeld/hoog>" with title "APA-signaal"
-sound name "Glass"' (vul de echte waardes in), en meld daarna dezelfde
-info hier in de chat: symbool, timeframe (3m), richting, entry/SL/TP,
-R:R, de confirmaties met hun ✅/⚠️/❌ (bijv. "Confirmaties: VWAP ✅
-(79.058), HTF-trend ⚠️, Volume Profile/POC ❌, VPSV ❌, Supply/Demand ❌"),
-en een risicoclassificatie — met de disclaimer dat dit signalering is,
-geen advies. Geen setup: meld kort "geen signaal", GEEN melding sturen.
+(gebruik data_get_ohlcv op beide). Stuur DIRECT een macOS-melding met
+een Bash-commando in de vorm osascript -e 'display notification
+"<symbool> <richting>, entry <entry>, SL <sl>, TP <tp>, R:R <rr>,
+risico: <laag/gemiddeld/hoog>" with title "APA: retest bevestigd" sound
+name "Glass"' (vul de echte waardes in), en meld daarna dezelfde info
+hier in de chat: symbool, timeframe (3m), richting, entry/SL/TP, R:R, de
+confirmaties met hun ✅/⚠️/❌ (bijv. "Confirmaties: VWAP ✅ (79.058),
+HTF-trend ⚠️, Volume Profile/POC ❌, VPSV ❌, Supply/Demand ❌"), en een
+risicoclassificatie — met de disclaimer dat dit signalering is, geen
+advies. (6) chart_set_timeframe terug naar het timeframe uit stap 1, ook
+als er niks was. Log ALTIJD (elke check) een regel in
+logs/apa-signal-log.csv via een Bash-commando in de vorm echo
+"<timestamp iso>,<richting: long/short/geen>,<htf: ✅/⚠️/❌/n.v.t.>,<mtf:
+✅/⚠️/❌/n.v.t.>,<vwap: ✅/⚠️/❌/n.v.t.>,<volume_profile: ✅/⚠️/❌/n.v.t.>,
+<vpsv: ✅/⚠️/❌/n.v.t.>,<supply_demand: ✅/⚠️/❌/n.v.t.>,<signaal: ja/nee>"
+>> logs/apa-signal-log.csv (n.v.t. bij geen setup/nog geen retest; vul
+de echte waardes in, geen spaties in de velden; "signaal" = ja alleen
+bij een bevestigde retest-entry, niet bij een void-melding).
 ```
+
+`logs/apa-last-void.txt` bevat steeds de laatst gemelde, nog niet
+gereteste void (richting,voidLow,voidHigh) — daarmee wordt voorkomen dat
+je elke 10 minuten opnieuw dezelfde "void gevormd"-melding krijgt zolang
+er nog geen retest is. Dit bestand is puur werkstate, niet interessant om
+zelf te lezen.
 
 Dit her-checkt elke 10 minuten (pas het interval aan naar smaak — bedenk
 dat elke check meerdere tool-calls kost en dus meetelt voor je 5-uurs
