@@ -52,30 +52,49 @@ van de afgelopen weken/maanden te bepalen, en leg vast welke richting
 (long/short) op dit moment is toegestaan. (3) MTF: chart_set_timeframe
 naar 15, gebruik data_get_ohlcv om te bevestigen dat de 15m-trend/
 -prijsactie dezelfde richting bevestigt als stap 2 — zo niet: stop hier,
-GEEN setup, ga direct naar stap 5. (4) LTF: chart_set_timeframe naar 3,
+GEEN setup, ga direct naar stap 6. (4) LTF: chart_set_timeframe naar 3,
 gebruik data_get_ohlcv om te zoeken naar: een recente impuls in de op
 stap 2+3 toegestane richting, een bijbehorende void/backtest-zone, en of
-de prijs nu die zone opnieuw test. Bepaal entry/SL/TP op basis van deze
-3m-data. Check VWAP via data_get_study_values en eventuele
+de prijs nu die zone opnieuw test — vind je dit niet: stop hier, GEEN
+setup, ga direct naar stap 6. Bepaal entry/SL/TP op basis van deze
+3m-data. (5) Check VWAP via data_get_study_values en eventuele
 supply/demand-/liquiditeitszones via data_get_pine_lines/pine_boxes als
-confirmatie. (5) chart_set_timeframe terug naar het timeframe uit stap
-1, ook als er geen setup is. Als er een kwalificerende setup is: stuur
-DIRECT een macOS-melding met een Bash-commando in de vorm osascript -e
-'display notification "<symbool> <richting>, entry <entry>, SL <sl>, TP
-<tp>, R:R <rr>, risico: <laag/gemiddeld/hoog>" with title "APA-signaal"
-sound name "Glass"' (vul de echte waardes in), en meld daarna dezelfde
-info hier in de chat: symbool, timeframe (3m), richting, entry/SL/TP,
-R:R, welke confirmaties aanwezig/afwezig zijn, de HTF/MTF-trend die de
-richting toestond, en een risicoclassificatie — met de disclaimer dat
-dit signalering is, geen advies. Als er geen setup is (op MTF- of
-LTF-niveau): meld kort "geen signaal" en stop, GEEN melding sturen, geen
-verdere actie nodig.
+confirmatie — bevestigt VWAP niet: stop hier, GEEN setup, ga direct naar
+stap 6. (6) chart_set_timeframe terug naar het timeframe uit stap 1,
+ook als er geen setup is. Log daarna ALTIJD (elke check, ook bij geen
+setup) een regel in logs/apa-signal-log.csv via een Bash-commando in de
+vorm echo "<timestamp iso>,<htf_richting: long/short/onduidelijk>,<mtf_
+bevestigt: ja/nee>,<ltf_impuls_void_retest: ja/nee/n.v.t. als bij MTF
+gestopt>,<vwap_bevestigt: ja/nee/n.v.t.>,<gestopt_bij: HTF/MTF/LTF/VWAP/
+GEEN>,<signaal: ja/nee>" >> logs/apa-signal-log.csv (vul de echte
+waardes in, geen spaties in de velden). Als er een kwalificerende setup
+is (alle stappen doorstaan): stuur DIRECT een macOS-melding met een
+Bash-commando in de vorm osascript -e 'display notification "<symbool>
+<richting>, entry <entry>, SL <sl>, TP <tp>, R:R <rr>, risico:
+<laag/gemiddeld/hoog>" with title "APA-signaal" sound name "Glass"' (vul
+de echte waardes in), en meld daarna dezelfde info hier in de chat:
+symbool, timeframe (3m), richting, entry/SL/TP, R:R, welke confirmaties
+aanwezig/afwezig zijn, de HTF/MTF-trend die de richting toestond, en een
+risicoclassificatie — met de disclaimer dat dit signalering is, geen
+advies. Als er geen setup is: meld kort bij welke stap gestopt is (HTF/
+MTF/LTF/VWAP) en "geen signaal", GEEN melding sturen, geen verdere actie
+nodig.
 ```
 
 Dit her-checkt elke 10 minuten (pas het interval aan naar smaak — bedenk
 dat elke check meerdere tool-calls kost en dus meetelt voor je 5-uurs
 gebruikslimiet) zolang de sessie open staat en TradingView met
 debug-poort draait.
+
+## Knelpunt vinden: logs/apa-signal-log.csv
+
+Elke check (ook zonder setup) voegt een regel toe: timestamp,
+HTF-richting, of MTF bevestigde, of er op LTF een impuls/void/retest
+gevonden werd, of VWAP bevestigde, bij welke stap gestopt werd, en of er
+een signaal was. Na een tijdje draaien kun je hier (of lokaal) vragen:
+"Lees logs/apa-signal-log.csv en vat samen bij welke stap de meeste
+checks stoppen" — dat laat zien of vooral HTF, MTF, LTF of VWAP de
+bottleneck is, zodat je gericht kunt verruimen in plaats van gokken.
 
 ## Op de achtergrond draaien (screen)
 
