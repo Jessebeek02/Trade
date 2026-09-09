@@ -40,20 +40,22 @@ Start lokaal een Claude Code-sessie in deze repo en gebruik de `loop`
 skill met onderstaande prompt (pas het symbool/timeframe aan):
 
 ```
-/loop 10m Check de TradingView-chart op een APA-signaal volgens
+/loop 10m (0) Meld eerst het huidige tijdstip via het Bash-commando
+date '+%H:%M' en meld "Check om <tijd> — volgende check rond <tijd+10m>".
+Check daarna de TradingView-chart op een APA-signaal volgens
 docs/apa-signal-strategy.md in deze repo, met de verplichte HTF/LTF-stap
-uit dat bestand. Stappen: (0) onthoud via chart_get_state het huidige
+uit dat bestand. Stappen: (1) onthoud via chart_get_state het huidige
 symbool en timeframe (dit is de LTF waar je aan het eind naar
-terugschakelt). (1) HTF: chart_set_timeframe naar Daily (D), gebruik
+terugschakelt). (2) HTF: chart_set_timeframe naar Daily (D), gebruik
 data_get_ohlcv om de trend en eerdere impulsen/voids van de afgelopen
 weken/maanden te bepalen, en leg vast welke richting (long/short) op dit
-moment is toegestaan. (2) LTF: chart_set_timeframe terug naar 15,
+moment is toegestaan. (3) LTF: chart_set_timeframe terug naar 15,
 gebruik data_get_ohlcv om te zoeken naar: een recente impuls in de op
-stap 1 toegestane richting, een bijbehorende void/backtest-zone, en of
+stap 2 toegestane richting, een bijbehorende void/backtest-zone, en of
 de prijs nu die zone opnieuw test. Check VWAP via data_get_study_values
 en eventuele supply/demand-/liquiditeitszones via
-data_get_pine_lines/pine_boxes als confirmatie. (3) chart_set_timeframe
-terug naar het timeframe uit stap 0, ook als er geen setup is. Als er
+data_get_pine_lines/pine_boxes als confirmatie. (4) chart_set_timeframe
+terug naar het timeframe uit stap 1, ook als er geen setup is. Als er
 een kwalificerende setup is: stuur DIRECT een macOS-melding met een
 Bash-commando in de vorm osascript -e 'display notification "<symbool>
 <richting>, entry <entry>, SL <sl>, TP <tp>, R:R <rr>, risico:
