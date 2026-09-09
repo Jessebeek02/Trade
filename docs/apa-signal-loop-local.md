@@ -40,7 +40,7 @@ Start lokaal een Claude Code-sessie in deze repo en gebruik de `loop`
 skill met onderstaande prompt (pas het symbool/timeframe aan):
 
 ```
-/loop 5m Check de TradingView-chart op een APA-signaal volgens
+/loop 10m Check de TradingView-chart op een APA-signaal volgens
 docs/apa-signal-strategy.md in deze repo, met de verplichte HTF/LTF-stap
 uit dat bestand. Stappen: (0) onthoud via chart_get_state het huidige
 symbool en timeframe (dit is de LTF waar je aan het eind naar
@@ -66,8 +66,10 @@ advies. Als er geen setup is: meld kort "geen signaal" en stop, GEEN
 melding sturen, geen verdere actie nodig.
 ```
 
-Dit her-checkt elke 5 minuten (pas het interval aan naar smaak) zolang de
-sessie open staat en TradingView met debug-poort draait.
+Dit her-checkt elke 10 minuten (pas het interval aan naar smaak — bedenk
+dat elke check meerdere tool-calls kost en dus meetelt voor je 5-uurs
+gebruikslimiet) zolang de sessie open staat en TradingView met
+debug-poort draait.
 
 ## Op de achtergrond draaien (screen)
 
