@@ -47,15 +47,45 @@ Zoek naar: (1) een recente impuls (abrupte mark-up of mark-down), (2) een
 bijbehorende void/backtest-zone, (3) of de prijs nu die zone opnieuw
 test. Check VWAP via data_get_study_values en eventuele
 supply/demand-/liquiditeitszones via data_get_pine_lines/pine_boxes als
-confirmatie. Als er een kwalificerende setup is: meld symbool, timeframe,
-richting, entry/SL/TP, R:R, welke confirmaties aanwezig/afwezig zijn, en
-een risicoclassificatie — met de disclaimer dat dit signalering is, geen
-advies. Als er geen setup is: meld kort "geen signaal" en stop, geen
-verdere actie nodig.
+confirmatie. Als er een kwalificerende setup is: stuur DIRECT een
+macOS-melding met een Bash-commando in de vorm
+osascript -e 'display notification "<symbool> <richting>, entry <entry>,
+SL <sl>, TP <tp>, R:R <rr>, risico: <laag/gemiddeld/hoog>" with title
+"APA-signaal" sound name "Glass"' (vul de echte waardes in), en meld
+daarna dezelfde info hier in de chat: symbool, timeframe, richting,
+entry/SL/TP, R:R, welke confirmaties aanwezig/afwezig zijn, en een
+risicoclassificatie — met de disclaimer dat dit signalering is, geen
+advies. Als er geen setup is: meld kort "geen signaal" en stop, GEEN
+melding sturen, geen verdere actie nodig.
 ```
 
 Dit her-checkt elke 5 minuten (pas het interval aan naar smaak) zolang de
 sessie open staat en TradingView met debug-poort draait.
+
+## Op de achtergrond draaien (screen)
+
+`screen` zit al op macOS (geen installatie nodig). Zo blijft de sessie
+draaien ook als je het Terminal-venster sluit — zolang je Mac aan blijft
+en niet in slaap gaat, en TradingView met debug-poort blijft draaien.
+
+Start een nieuwe achtergrondsessie:
+```bash
+screen -S apa-loop
+```
+Start daarin `claude` en de `/loop`-prompt hierboven zoals normaal. Koppel
+de sessie los (laat 'm doordraaien) met **Ctrl+A, dan D**. Je Terminal-
+venster kun je nu sluiten.
+
+Weer terugkijken:
+```bash
+screen -r apa-loop
+```
+Checken of hij nog draait zonder erin te gaan:
+```bash
+screen -ls
+```
+Stoppen: ga terug in de sessie (`screen -r apa-loop`) en typ `exit`, of
+gebruik `/loop stop` binnen Claude Code zelf.
 
 ## Itereren
 
