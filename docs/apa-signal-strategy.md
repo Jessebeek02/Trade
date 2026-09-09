@@ -24,41 +24,37 @@ kansen op de chart volgens een vast patroon, met bijbehorend risico/R:R.
    terugtest van een mark-up-void, short bij terugtest van een
    mark-down-void).
 
-## HTF/MTF/LTF — verplichte drie-staps-check
+## LTF (3m) — waar een setup op gebaseerd wordt
 
-Zoals in Module 3 (Scalpen APA): eerst trend bepalen op een hoger
-timeframe, dán pas op een lager timeframe naar een concrete entry zoeken.
-Beide richtingen (long én short) zijn evengoed geldig — welke van de
-twee actueel is, volgt puur uit de HTF-trend en de richting van de meest
-recente impuls, niet uit een voorkeur.
+De daadwerkelijke impuls/void/retest en het entry-moment worden altijd op
+**3m** gezocht, bij elke check, in beide richtingen (long én short) — er
+wordt niet vooraf gefilterd op een "toegestane richting". Vind je op 3m
+een impuls + bijbehorende void + een retest daarvan: dat ís de setup.
+Entry, SL en TP worden op deze 3m-data bepaald. Geen impuls/void/retest
+gevonden: geen setup, klaar — dit is de enige harde voorwaarde.
 
-1. **HTF (Daily)** — trend en eerdere impulsen/voids over de afgelopen
-   weken/maanden. Bepaalt de toegestane richting (in een HTF-uptrend
-   alleen long-setups meewegen, in een HTF-downtrend alleen short, tenzij
-   er een duidelijke trendwisseling zichtbaar is).
-2. **MTF (15m)** — tussenliggende confirmatie: bevestigt de 15m-trend/
-   -prijsactie dezelfde richting als de HTF? Zo niet, geen setup nemen ook
-   al klopt de 3m-entry op zich.
-3. **LTF (3m)** — de daadwerkelijke impuls/void/retest en het
-   entry-moment binnen de op stap 1+2 toegestane richting. Entry, SL en
-   TP worden bepaald op deze timeframe.
+## Confirmaties — informatief, geen poort
 
-## Confirmaties (voor je een setup als "kansrijk" markeert)
+Zodra er een setup is (zie hierboven), worden onderstaande confirmaties
+gecheckt en **altijd gerapporteerd**, ongeacht of ze aanwezig zijn — ze
+blokkeren een setup niet, ze bepalen alleen het gerapporteerde risico.
+Rapporteer elk met ✅ (bevestigt), ⚠️ (onduidelijk/zwak), of ❌
+(bevestigt niet/tegengesteld):
 
+- **HTF-trend (Daily)** — is de richting van de setup in lijn met de
+  trend en eerdere impulsen/voids op Daily (afgelopen weken/maanden)?
+- **MTF (15m)** — bevestigt de 15m-trend/-prijsactie dezelfde richting?
 - **VWAP** — ligt de retest aan de juiste kant van VWAP voor de richting
   van de trade?
 - **Volume Profile / POC** — valt de void samen met een low-volume node,
   en ligt het Point of Control niet middenin de void (zou de impuls-these
   tegenspreken)?
 - **VPSV (session volume)** — bevestigt het sessievolume de impuls-richting?
-- **HTF/MTF-trend** — is de retest in lijn met de trend op zowel Daily als
-  15m (zie hierboven)?
 - **Supply/Demand & liquiditeit** — ligt de void in of nabij een
   supply/demand-zone of liquiditeitszone?
 
-Hoe meer confirmaties aanwezig zijn, hoe lager het gerapporteerde risico.
-Zonder VWAP- of HTF-confirmatie: markeer als hoog risico, ook als het
-patroon zelf klopt.
+Hoe meer ✅, hoe lager het gerapporteerde risico. Veel ❌ (met name bij
+HTF/VWAP): markeer als hoog risico, ook al klopt het 3m-patroon zelf.
 
 ## Entry / SL / TP — "1.1.2-regel" (best-inschatting, te verfijnen)
 
@@ -76,10 +72,12 @@ patroon zelf klopt.
 ## Risico-rapportage bij elk signaal
 
 Bij elke gesignaleerde kans, rapporteer:
-- Symbool, timeframe, richting (long/short)
+- Symbool, timeframe (3m), richting (long/short)
 - Entry, SL, TP (prijsniveaus)
 - Risk:Reward-ratio
-- Welke confirmaties aanwezig zijn / ontbreken
+- Confirmaties: elk van HTF-trend, MTF, VWAP, Volume Profile/POC, VPSV,
+  Supply/Demand met ✅/⚠️/❌ (zie Confirmaties hierboven), ook als de
+  meeste ❌ zijn
 - Risico-classificatie (laag/gemiddeld/hoog) op basis van bovenstaande
 - Expliciete disclaimer: signalering, geen advies
 

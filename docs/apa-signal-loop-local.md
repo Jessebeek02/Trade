@@ -43,42 +43,39 @@ skill met onderstaande prompt (pas het symbool/timeframe aan):
 /loop 10m (0) Meld eerst het huidige tijdstip via het Bash-commando
 date '+%H:%M' en meld "Check om <tijd> — volgende check rond <tijd+10m>".
 Check daarna de TradingView-chart op een APA-signaal volgens
-docs/apa-signal-strategy.md in deze repo, met de verplichte
-HTF/MTF/LTF-stap uit dat bestand. Stappen: (1) onthoud via
-chart_get_state het huidige symbool en timeframe (dit is de LTF waar je
-aan het eind naar terugschakelt). (2) HTF: chart_set_timeframe naar
-Daily (D), gebruik data_get_ohlcv om de trend en eerdere impulsen/voids
-van de afgelopen weken/maanden te bepalen, en leg vast welke richting
-(long/short) op dit moment is toegestaan. (3) MTF: chart_set_timeframe
-naar 15, gebruik data_get_ohlcv om te bevestigen dat de 15m-trend/
--prijsactie dezelfde richting bevestigt als stap 2 — zo niet: stop hier,
-GEEN setup, ga direct naar stap 6. (4) LTF: chart_set_timeframe naar 3,
-gebruik data_get_ohlcv om te zoeken naar: een recente impuls in de op
-stap 2+3 toegestane richting, een bijbehorende void/backtest-zone, en of
-de prijs nu die zone opnieuw test — vind je dit niet: stop hier, GEEN
-setup, ga direct naar stap 6. Bepaal entry/SL/TP op basis van deze
-3m-data. (5) Check VWAP via data_get_study_values en eventuele
-supply/demand-/liquiditeitszones via data_get_pine_lines/pine_boxes als
-confirmatie — bevestigt VWAP niet: stop hier, GEEN setup, ga direct naar
-stap 6. (6) chart_set_timeframe terug naar het timeframe uit stap 1,
-ook als er geen setup is. Log daarna ALTIJD (elke check, ook bij geen
-setup) een regel in logs/apa-signal-log.csv via een Bash-commando in de
-vorm echo "<timestamp iso>,<htf_richting: long/short/onduidelijk>,<mtf_
-bevestigt: ja/nee>,<ltf_impuls_void_retest: ja/nee/n.v.t. als bij MTF
-gestopt>,<vwap_bevestigt: ja/nee/n.v.t.>,<gestopt_bij: HTF/MTF/LTF/VWAP/
-GEEN>,<signaal: ja/nee>" >> logs/apa-signal-log.csv (vul de echte
-waardes in, geen spaties in de velden). Als er een kwalificerende setup
-is (alle stappen doorstaan): stuur DIRECT een macOS-melding met een
-Bash-commando in de vorm osascript -e 'display notification "<symbool>
-<richting>, entry <entry>, SL <sl>, TP <tp>, R:R <rr>, risico:
-<laag/gemiddeld/hoog>" with title "APA-signaal" sound name "Glass"' (vul
-de echte waardes in), en meld daarna dezelfde info hier in de chat:
-symbool, timeframe (3m), richting, entry/SL/TP, R:R, welke confirmaties
-aanwezig/afwezig zijn, de HTF/MTF-trend die de richting toestond, en een
-risicoclassificatie — met de disclaimer dat dit signalering is, geen
-advies. Als er geen setup is: meld kort bij welke stap gestopt is (HTF/
-MTF/LTF/VWAP) en "geen signaal", GEEN melding sturen, geen verdere actie
-nodig.
+docs/apa-signal-strategy.md in deze repo. Stappen: (1) onthoud via
+chart_get_state het huidige symbool en timeframe (hier schakel je aan
+het eind naar terug). (2) chart_set_timeframe naar 3. Gebruik
+data_get_ohlcv om te zoeken naar een setup in BEIDE richtingen (long én
+short, geen voorkeur): een recente impuls, een bijbehorende void/
+backtest-zone, en of de prijs nu die zone opnieuw test. Vind je dit
+niet: er is geen setup, ga direct naar stap 4 (log + geen melding). (3)
+Is er wél een setup: bepaal entry/SL/TP op basis van deze 3m-data. Check
+dan ALLE confirmaties en beoordeel elk met ✅ (bevestigt), ⚠️ (onduidelijk/
+zwak) of ❌ (bevestigt niet) — dit blokkeert de setup niet, het is puur
+voor de risicoclassificatie: VWAP en Volume Profile/POC en VPSV en
+Supply/Demand-liquiditeitszones via data_get_study_values/
+data_get_pine_lines/data_get_pine_boxes op de 3m-chart; daarna kort
+chart_set_timeframe naar 15 voor de MTF-trend, en naar D (Daily) voor de
+HTF-trend en eerdere impulsen/voids van de afgelopen weken/maanden
+(gebruik data_get_ohlcv op beide). (4) chart_set_timeframe terug naar
+het timeframe uit stap 1, ook als er geen setup is. Log daarna ALTIJD
+(elke check, ook bij geen setup) een regel in logs/apa-signal-log.csv
+via een Bash-commando in de vorm echo "<timestamp iso>,<richting: long/
+short/geen>,<htf: ✅/⚠️/❌/n.v.t.>,<mtf: ✅/⚠️/❌/n.v.t.>,<vwap: ✅/⚠️/❌/
+n.v.t.>,<volume_profile: ✅/⚠️/❌/n.v.t.>,<vpsv: ✅/⚠️/❌/n.v.t.>,<supply_
+demand: ✅/⚠️/❌/n.v.t.>,<signaal: ja/nee>" >> logs/apa-signal-log.csv
+(n.v.t. bij geen setup; vul de echte waardes in, geen spaties in de
+velden). Is er een setup (ongeacht hoeveel confirmaties ✅ zijn): stuur
+DIRECT een macOS-melding met een Bash-commando in de vorm osascript -e
+'display notification "<symbool> <richting>, entry <entry>, SL <sl>, TP
+<tp>, R:R <rr>, risico: <laag/gemiddeld/hoog>" with title "APA-signaal"
+sound name "Glass"' (vul de echte waardes in), en meld daarna dezelfde
+info hier in de chat: symbool, timeframe (3m), richting, entry/SL/TP,
+R:R, de confirmaties met hun ✅/⚠️/❌ (bijv. "Confirmaties: VWAP ✅
+(79.058), HTF-trend ⚠️, Volume Profile/POC ❌, VPSV ❌, Supply/Demand ❌"),
+en een risicoclassificatie — met de disclaimer dat dit signalering is,
+geen advies. Geen setup: meld kort "geen signaal", GEEN melding sturen.
 ```
 
 Dit her-checkt elke 10 minuten (pas het interval aan naar smaak — bedenk
@@ -88,13 +85,22 @@ debug-poort draait.
 
 ## Knelpunt vinden: logs/apa-signal-log.csv
 
-Elke check (ook zonder setup) voegt een regel toe: timestamp,
-HTF-richting, of MTF bevestigde, of er op LTF een impuls/void/retest
-gevonden werd, of VWAP bevestigde, bij welke stap gestopt werd, en of er
-een signaal was. Na een tijdje draaien kun je hier (of lokaal) vragen:
-"Lees logs/apa-signal-log.csv en vat samen bij welke stap de meeste
-checks stoppen" — dat laat zien of vooral HTF, MTF, LTF of VWAP de
-bottleneck is, zodat je gericht kunt verruimen in plaats van gokken.
+Elke check (ook zonder setup) voegt een regel toe: timestamp, richting
+(long/short/geen), en per confirmatie (HTF, MTF, VWAP, Volume Profile,
+VPSV, Supply/Demand) een ✅/⚠️/❌/n.v.t., plus of het uiteindelijk een
+signaal werd. Na een tijdje draaien kun je hier (of lokaal) vragen: "Lees
+logs/apa-signal-log.csv en vat samen hoe vaak er een setup was, en welke
+confirmaties het vaakst ❌ zijn" — dat laat zien hoe vaak het patroon
+zelf voorkomt en welke confirmatie het minst vaak meewerkt.
+
+**Let op bij het updaten:** het kolomformaat van dit bestand is
+gewijzigd (van de oude HTF/MTF/LTF/VWAP-poort-kolommen naar de nieuwe
+✅/⚠️/❌-confirmatiekolommen). Als je lokale `screen`-sessie al rijen aan
+het oude bestand heeft toegevoegd, geeft `git pull` mogelijk een
+conflict omdat het lokale bestand afwijkt van wat er nu in de repo staat.
+Zet in dat geval eerst je lokale rijen apart (`cp logs/apa-signal-log.csv
+logs/apa-signal-log-oud.csv`), doe dan `git checkout -- logs/apa-signal-log.csv`
+om je lokale wijzigingen te laten vallen, en pull daarna opnieuw.
 
 ## Op de achtergrond draaien (screen)
 
