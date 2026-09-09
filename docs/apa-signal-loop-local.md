@@ -23,7 +23,11 @@ Mac draait (poort 9222). Een cloud-sessie kan die app niet bereiken.
 
 - `chart_get_state` — huidig symbool, timeframe, actieve indicatoren
 - `quote_get` — laatste prijs/OHLC/volume
-- `data_get_ohlcv` — prijsbalken (voor impuls/void-detectie)
+- `data_get_ohlcv` — prijsbalken (voor impuls/void-detectie). Vraag hier
+  expliciet een **langere geschiedenis** op (niet alleen de laatste paar
+  bars) zodat ook oksels van eerder vandaag/gisteren die nog niet
+  geretest zijn meegenomen worden — zie "Meerdere actieve oksels
+  tegelijk" in docs/apa-signal-strategy.md.
 - `data_get_study_values` — waarden van indicatoren (o.a. VWAP)
 - `data_get_pine_lines` / `data_get_pine_labels` / `data_get_pine_boxes` —
   handmatig getekende/indicator-zones (support/resistance, volume-profile
@@ -42,54 +46,67 @@ skill met onderstaande prompt (pas het symbool/timeframe aan):
 ```
 /loop 10m (0) Meld eerst het huidige tijdstip via het Bash-commando
 date '+%H:%M' en meld "Check om <tijd> — volgende check rond <tijd+10m>".
-Check daarna de TradingView-chart op een APA-signaal volgens
-docs/apa-signal-strategy.md in deze repo — één meldingsmoment: zodra de
-oksel (void) ontstaat. Stappen: (1) onthoud via chart_get_state het
-huidige symbool en timeframe (hier schakel je aan het eind naar terug).
-(2) chart_set_timeframe naar 3. Gebruik data_get_ohlcv om te zoeken naar
-een impuls + bijbehorende void/backtest-zone in BEIDE richtingen (long
-én short, geen voorkeur). Geen impuls/void gevonden: leeg
-logs/apa-last-void.txt (echo -n "" > logs/apa-last-void.txt), log (stap
-5) en klaar, geen melding. (3) Wél een impuls/void gevonden: lees
-logs/apa-last-void.txt. Staat daar al dezelfde richting+zone in (dus
-deze oksel is al gemeld) — geen nieuwe melding, log (stap 5) en klaar.
-Is het een NIEUWE of ANDERE oksel (bestand leeg of andere waardes): dit
-is de volledige setup, direct — bepaal entry (rand van de void aan de
-kant waar de prijs vandaan kwam, als limit order), SL (net voorbij de
-void) en TP op basis van deze 3m-data. (4) Check ALLE confirmaties en
-beoordeel elk met ✅ (bevestigt), ⚠️ (onduidelijk/zwak) of ❌ (bevestigt
-niet) — dit blokkeert de setup niet, het is puur voor de
-risicoclassificatie: VWAP en Volume Profile/POC en VPSV en
-Supply/Demand-liquiditeitszones via data_get_study_values/
+Check daarna de TradingView-chart op APA-signalen volgens
+docs/apa-signal-strategy.md in deze repo — er kunnen meerdere oksels
+tegelijk actief zijn, elke oksel wordt maar één keer gemeld. Stappen: (1)
+onthoud via chart_get_state het huidige symbool en timeframe (hier
+schakel je aan het eind naar terug). (2) chart_set_timeframe naar 3.
+Gebruik data_get_ohlcv met een LANGERE geschiedenis (niet alleen de
+laatste paar bars — vraag bijv. de laatste 24-48 uur op 3m op) en zoek
+naar ALLE overtuigende impulsen (duidelijke, stevige beweging met
+merkbaar verhoogd volume — twijfelachtige bewegingen tellen niet) met
+bijbehorende void/backtest-zone, in BEIDE richtingen. (3) Lees
+logs/apa-active-voids.csv. Voor elke regel daarin: check in de
+3m-data of de prijs die zone sinds "gevormd_op" al geraakt heeft — zo
+ja: die oksel is uitgespeeld, verwijder de regel uit het bestand (herschrijf
+het bestand zonder die regel). (4) Vergelijk de nu gevonden impulsen/voids
+uit stap 2 met wat er (na opschoning) nog in logs/apa-active-voids.csv
+staat: voids die er al in staan zijn al gemeld, sla die over. Voor elke
+NIEUWE, nog niet eerder geziene en nog niet geretest void: dit is een
+volledige nieuwe setup — herhaal onderstaande voor elke nieuwe oksel
+apart als er meerdere tegelijk zijn. Bepaal entry (rand van de void aan
+de kant waar de prijs vandaan kwam, als limit order), stop-loss (0,25%
+vanaf entry als uitgangspunt — wijk hiervan af, bijv. 0,20% of 0,30%,
+als de 3m-prijsactie een logischere plek laat zien op basis van support/
+demand/liquiditeit/volume) en take-profit op basis van deze 3m-data.
+Check ALLE confirmaties en beoordeel elk met ✅ (bevestigt), ⚠️
+(onduidelijk/zwak) of ❌ (bevestigt niet) — dit blokkeert de setup niet,
+het is puur voor de risicoclassificatie: VWAP en Volume Profile/POC en
+VPSV en Supply/Demand-liquiditeitszones via data_get_study_values/
 data_get_pine_lines/data_get_pine_boxes op de 3m-chart; daarna kort
-chart_set_timeframe naar 15 voor de MTF-trend, en naar D (Daily) voor de
-HTF-trend en eerdere impulsen/voids van de afgelopen weken/maanden
-(gebruik data_get_ohlcv op beide). Stuur DIRECT een macOS-melding met
-een Bash-commando in de vorm osascript -e 'display notification
-"<symbool> <richting>, entry <entry>, SL <sl>, TP <tp>, R:R <rr>,
-risico: <laag/gemiddeld/hoog>" with title "APA-signaal" sound name
-"Glass"' (vul de echte waardes in), meld daarna dezelfde info hier in de
-chat: symbool, timeframe (3m), richting, entry/SL/TP, R:R, de
+chart_set_timeframe naar 15 voor de MTF-trend én de range-positie op
+15m, en naar D (Daily) voor de HTF-trend, eerdere impulsen/voids van de
+afgelopen weken/maanden, én de range-positie op Daily (gebruik
+data_get_ohlcv op beide; range-positie = zit de prijs ongunstig
+bovenin/onderin de recente range voor deze richting?). Stuur DIRECT een
+macOS-melding met een Bash-commando in de vorm osascript -e 'display
+notification "<symbool> <richting>, entry <entry>, SL <sl>, TP <tp>,
+R:R <rr>, risico: <laag/gemiddeld/hoog>" with title "APA-signaal" sound
+name "Glass"' (vul de echte waardes in), meld daarna dezelfde info hier
+in de chat: symbool, timeframe (3m), richting, entry/SL/TP, R:R, de
 confirmaties met hun ✅/⚠️/❌ (bijv. "Confirmaties: VWAP ✅ (79.058),
-HTF-trend ⚠️, Volume Profile/POC ❌, VPSV ❌, Supply/Demand ❌"), en een
-risicoclassificatie — met de disclaimer dat dit signalering is, geen
-advies — en schrijf de void weg met echo "<richting>,<voidLow>,
-<voidHigh>" > logs/apa-last-void.txt zodat 'm niet nogmaals gemeld
-wordt. (5) chart_set_timeframe terug naar het timeframe uit stap 1, ook
-als er niks was. Log ALTIJD (elke check) een regel in
-logs/apa-signal-log.csv via een Bash-commando in de vorm echo
-"<timestamp iso>,<richting: long/short/geen>,<htf: ✅/⚠️/❌/n.v.t.>,<mtf:
-✅/⚠️/❌/n.v.t.>,<vwap: ✅/⚠️/❌/n.v.t.>,<volume_profile: ✅/⚠️/❌/n.v.t.>,
-<vpsv: ✅/⚠️/❌/n.v.t.>,<supply_demand: ✅/⚠️/❌/n.v.t.>,<signaal: ja/nee>"
->> logs/apa-signal-log.csv (n.v.t. bij geen setup; vul de echte waardes
-in, geen spaties in de velden).
+HTF-trend ⚠️, Range-positie ❌, Volume Profile/POC ❌, VPSV ❌,
+Supply/Demand ❌"), en een risicoclassificatie — met de disclaimer dat
+dit signalering is, geen advies — en voeg de oksel toe aan
+logs/apa-active-voids.csv via echo "<timestamp iso>,<richting>,
+<voidLow>,<voidHigh>" >> logs/apa-active-voids.csv zodat 'm niet
+nogmaals gemeld wordt. (5) chart_set_timeframe terug naar het timeframe
+uit stap 1. Log voor elke deze-check NIEUW gesignaleerde oksel een regel
+in logs/apa-signal-log.csv (en minstens één regel per check, ook als er
+niks nieuws was — dan richting=geen) via een Bash-commando in de vorm
+echo "<timestamp iso>,<richting: long/short/geen>,<htf: ✅/⚠️/❌/n.v.t.>,
+<mtf: ✅/⚠️/❌/n.v.t.>,<range_positie: ✅/⚠️/❌/n.v.t.>,<vwap:
+✅/⚠️/❌/n.v.t.>,<volume_profile: ✅/⚠️/❌/n.v.t.>,<vpsv: ✅/⚠️/❌/n.v.t.>,
+<supply_demand: ✅/⚠️/❌/n.v.t.>,<signaal: ja/nee>" >>
+logs/apa-signal-log.csv (n.v.t. bij geen setup; vul de echte waardes in,
+geen spaties in de velden).
 ```
 
-`logs/apa-last-void.txt` bevat steeds de laatst gemelde oksel
-(richting,voidLow,voidHigh) — daarmee wordt voorkomen dat je elke 10
-minuten opnieuw dezelfde melding krijgt zolang dezelfde oksel nog
-"actief" is (nog geen nieuwe impuls die 'm vervangt). Dit bestand is
-puur werkstate, niet interessant om zelf te lezen.
+`logs/apa-active-voids.csv` bevat alle nog niet-geretete, eerder gemelde
+oksels (gevormd_op,richting,voidLow,voidHigh) — daarmee kan de bot
+meerdere setups tegelijk bijhouden zonder dubbel te melden, en oksels die
+inmiddels wél geretest zijn automatisch als "uitgespeeld" verwijderen.
+Dit bestand is puur werkstate, niet interessant om zelf te lezen.
 
 Dit her-checkt elke 10 minuten (pas het interval aan naar smaak — bedenk
 dat elke check meerdere tool-calls kost en dus meetelt voor je 5-uurs
@@ -99,21 +116,24 @@ debug-poort draait.
 ## Knelpunt vinden: logs/apa-signal-log.csv
 
 Elke check (ook zonder setup) voegt een regel toe: timestamp, richting
-(long/short/geen), en per confirmatie (HTF, MTF, VWAP, Volume Profile,
-VPSV, Supply/Demand) een ✅/⚠️/❌/n.v.t., plus of het uiteindelijk een
-signaal werd. Na een tijdje draaien kun je hier (of lokaal) vragen: "Lees
-logs/apa-signal-log.csv en vat samen hoe vaak er een setup was, en welke
-confirmaties het vaakst ❌ zijn" — dat laat zien hoe vaak het patroon
-zelf voorkomt en welke confirmatie het minst vaak meewerkt.
+(long/short/geen), en per confirmatie (HTF, MTF, Range-positie, VWAP,
+Volume Profile, VPSV, Supply/Demand) een ✅/⚠️/❌/n.v.t., plus of het
+uiteindelijk een signaal werd. Na een tijdje draaien kun je hier (of
+lokaal) vragen: "Lees logs/apa-signal-log.csv en vat samen hoe vaak er
+een setup was, en welke confirmaties het vaakst ❌ zijn" — dat laat zien
+hoe vaak het patroon zelf voorkomt en welke confirmatie het minst vaak
+meewerkt.
 
-**Let op bij het updaten:** het kolomformaat van dit bestand is
-gewijzigd (van de oude HTF/MTF/LTF/VWAP-poort-kolommen naar de nieuwe
-✅/⚠️/❌-confirmatiekolommen). Als je lokale `screen`-sessie al rijen aan
-het oude bestand heeft toegevoegd, geeft `git pull` mogelijk een
-conflict omdat het lokale bestand afwijkt van wat er nu in de repo staat.
-Zet in dat geval eerst je lokale rijen apart (`cp logs/apa-signal-log.csv
-logs/apa-signal-log-oud.csv`), doe dan `git checkout -- logs/apa-signal-log.csv`
-om je lokale wijzigingen te laten vallen, en pull daarna opnieuw.
+**Let op bij het updaten:** het kolomformaat van `logs/apa-signal-log.csv`
+is opnieuw gewijzigd (Range-positie-kolom toegevoegd), en
+`logs/apa-last-void.txt` is vervangen door `logs/apa-active-voids.csv`
+(kan meerdere oksels tegelijk bijhouden). Als je lokale `screen`-sessie
+al rijen aan de oude bestanden heeft toegevoegd, geeft `git pull`
+mogelijk een conflict. Zet in dat geval eerst je lokale rijen apart (`cp
+logs/apa-signal-log.csv logs/apa-signal-log-oud.csv`), doe dan `git
+checkout -- logs/apa-signal-log.csv` (en evt. `rm -f
+logs/apa-last-void.txt`) om je lokale wijzigingen te laten vallen, en
+pull daarna opnieuw.
 
 ## Op de achtergrond draaien (screen)
 
