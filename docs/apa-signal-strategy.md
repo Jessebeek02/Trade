@@ -28,38 +28,52 @@ kansen op de chart volgens een vast patroon, met bijbehorend risico/R:R.
    omhoog/omlaag schiet, de oksel is het smalle plekje waar die arm aan
    het lichaam vastzit — niet de arm zelf. Een void die de hele
    impuls-afstand beslaat is dus fout; te breed.
-3. **De void (oksel) ís de entry-zone** — zodra de impuls een void
-   achterlaat, is die zone zelf waar je instapt (long bij een
-   mark-up-void, short bij een mark-down-void) — als een limit order in
-   de oksel, niet pas na een latere "reactie" of tweede bevestiging. (Dit
-   is een correctie op een eerdere versie van dit document die een
-   "wacht op duidelijke reactie"-regel bevatte — dat was nooit uit de
-   cursus-audio bevestigd en was een onterechte verstrenging.) De precieze
-   entry-lijn zit aan de kant van de oksel die het **verst** van de
-   impuls-richting af ligt: bij een mark-up-void (long) de **onderkant**
-   van de oksel (het diepste punt van de void), bij een mark-down-void
-   (short) de **bovenkant**.
+3. **De void (oksel) ís de entry-zone, maar pas na een reclaim-bevestiging**
+   — zodra de impuls een void achterlaat, is die zone waar je uiteindelijk
+   instapt (long bij een mark-up-void, short bij een mark-down-void), als
+   een limit order. (Een eerdere versie van dit document zei dat dit
+   *direct* gebeurt, zonder te wachten op een reactie — dat bleek zelf
+   weer een onterechte versimpeling: cursusmateriaal over module 2 laat
+   zien dat de entry pas gebeurt "als de prijs teruggeeft tot in de void
+   **en daar een reactie laat zien** — een korte terugval die weer wordt
+   opgevangen".) Concreet: wacht tot de prijs minstens **3 candles op rij**
+   volledig — open én close — aan de goede kant van de oksel sluit (boven
+   voor een mark-up-void, onder voor een mark-down-void) vóórdat je de
+   setup als bevestigd beschouwt en de entry meldt. Eén candle die dat niet
+   doet: geen bevestiging, geen melding (nog) — wacht op een nieuw signaal.
+   De precieze entry-lijn zit aan de kant van de oksel die het **verst**
+   van de impuls-richting af ligt: bij een mark-up-void (long) de
+   **onderkant** van de oksel (het diepste punt van de void), bij een
+   mark-down-void (short) de **bovenkant**.
 
-## Eén meldingsmoment per oksel: zodra hij ontstaat
+## Eén meldingsmoment per oksel: zodra hij bevestigd is
 
-Er is precies één signaalmoment per oksel, zoals in de cursus: de oksel
-ontstaat → de bot analyseert HTF, MTF en LTF → de bot checkt de
-confirmaties → er rolt één complete setup uit (entry in de oksel, SL,
-TP, risico). Dit gebeurt direct zodra de void gezien wordt op **3m** (in
-beide richtingen, long én short, geen voorkeur) — niet pas nadat de
-prijs 'm al opnieuw geraakt heeft. Elke oksel wordt maar **één keer** zo
-gemeld. Geen impuls/void gevonden: geen setup — dit is de enige harde
-voorwaarde.
+Er is precies één signaalmoment per oksel: de oksel ontstaat → de bot
+houdt 'm bij als "wachtend op bevestiging" → zodra de prijs 3 candles op
+rij de reclaim-eis haalt (zie hierboven) → de bot analyseert HTF, MTF en
+LTF → de bot checkt de confirmaties → er rolt één complete setup uit
+(entry in de oksel, SL, TP, risico). Dit gebeurt op **3m** (in beide
+richtingen, long én short, geen voorkeur), zodra de bevestiging rond is —
+niet meteen bij het ontstaan van de oksel zelf (zie punt 3 hierboven), en
+ook niet pas nadat de prijs 'm daarna nóg een keer raakt. Een oksel die
+de reclaim-bevestiging niet haalt (bijv. een candle sluit terug binnen de
+oksel vóór de 3 zijn volgemaakt) wordt niet gemeld — die kans is dan
+vervallen. Elke bevestigde oksel wordt maar **één keer** zo gemeld. Geen
+impuls/void gevonden, of nooit bevestigd: geen setup — dit is de enige
+harde voorwaarde.
 
 ## Meerdere actieve oksels tegelijk
 
-Een oksel is en blijft een geldige entry-kans totdat hij **daadwerkelijk
-geretest wordt** — pas dan is hij "uitgespeeld" en niet meer relevant.
-Dat betekent:
+Dit gaat over **bevestigde** oksels (zie hierboven) — die zijn en blijven
+een geldige entry-kans totdat ze **daadwerkelijk geretest worden** — pas
+dan is zo'n oksel "uitgespeeld" en niet meer relevant. Een oksel die nog
+in de wachtfase zit (nog niet 3 candles bevestigd) staat hier nog niet
+tussen — die is nog geen gemelde setup, zie hierboven. Dat betekent:
 
 - De bot kijkt bij elke check niet alleen naar de allerlaatste candles,
   maar scant een stuk verder terug in de 3m-prijsactie om **alle nog
-  niet-geretete oksels** in kaart te brengen, niet alleen de nieuwste.
+  niet-geretete, bevestigde oksels** in kaart te brengen, niet alleen de
+  nieuwste.
 - Er kunnen dus **meerdere setups tegelijk actief** zijn (bijv. een
   long-oksel van een half uur geleden én een short-oksel van gisteren,
   allebei nog ongeretest).
@@ -99,21 +113,30 @@ HTF/VWAP/Range-positie): markeer als hoog risico, ook al klopt het
 
 ## Entry / SL / TP — "1.1.2-regel" (best-inschatting, te verfijnen)
 
-- **Entry**: in de oksel zelf — het smalle basisgebied bij de oorsprong
-  van de impuls (zie hierboven), als een limit order. Niet ergens
-  middenin of aan het einde van de volledige impuls-afstand, en niet pas
-  na een latere reactie.
-- **Stop-loss**: **0,25% vanaf entry** als uitgangspunt. Wijk hiervan af
-  (bijv. 0,20% of 0,30%, of verder) als de chart een logischere,
-  duidelijkere plek laat zien op basis van prijsactie — support/
-  demand-zones, liquiditeitszones, of volume — zie ook de
-  Supply/Demand/Liquiditeit-module: SL net buiten de zone die de these
-  ongeldig zou maken. Prijsactie is leidend boven het percentage.
-  → Voor bevestiging vs. de cursus-video's is de exacte "1.1.2"-verhouding
-    (waarschijnlijk een entry/SL/TP-verhouding) nog niet hard bevestigd.
-- **Take-profit**: volgende relevante liquiditeitszone of swing high/low;
-  overweeg limit vs. market afhankelijk van de gewenste winstmaximalisatie
-  (zoals besproken in Module 3).
+- **Entry**: aan de verste rand van de oksel (zie hierboven — bij een
+  mark-up-void de onderkant, bij een mark-down-void de bovenkant), als
+  limit order, pas ná de reclaim-bevestiging. Niet ergens middenin of aan
+  het einde van de volledige impuls-afstand.
+- **Stop-loss**: **0,25% vanaf entry** — dit staat letterlijk zo op de
+  cursus-chart (module 3: "SL = 0,25%") en is dus geen losse
+  vuistregel meer maar het uitgangspunt. Wijk hiervan af (bijv. krapper)
+  als de chart een dichterbij gelegen, logische plek laat zien op basis
+  van prijsactie — support/demand-zones, liquiditeitszones, of volume —
+  zie ook de Supply/Demand/Liquiditeit-module: SL net buiten de zone die
+  de these ongeldig zou maken. Ga niet ver**der** dan 0,25%, ook al lijkt
+  een structureel niveau verder weg te liggen.
+  → De exacte "1.1.2"-naam is nog steeds niet hard bevestigd (mogelijk een
+    andere verhouding dan de hieronder genoemde TP's), maar de losse
+    SL/TP-percentages zelf staan wel letterlijk in het cursusmateriaal.
+- **Take-profit**: twee niveaus, als R-multiples van de SL-afstand —
+  **TP1 = 1x SL (0,25%), TP2 = 2x SL (0,50%)**, letterlijk zo benoemd in
+  module 3. De cursus toont daarnaast vage "30/40%"/"40/20%"-percentages
+  bij het gedeeltelijk afbouwen van de positie op die targets, maar die
+  konden zonder audio niet betrouwbaar worden vastgesteld — verdeel voor
+  nu in gelijke delen (bijv. 50/50) tenzij je zelf een duidelijkere
+  verdeling ziet. Overweeg limit vs. market afhankelijk van de gewenste
+  winstmaximalisatie (dit onderdeel — "Winst maximaliseren", Module 3 —
+  kon inhoudelijk niet uit de schermafbeeldingen worden herleid).
 
 ## Risico-rapportage bij elk signaal
 

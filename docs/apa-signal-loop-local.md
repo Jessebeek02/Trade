@@ -48,7 +48,8 @@ skill met onderstaande prompt (pas het symbool/timeframe aan):
 date '+%H:%M' en meld "Check om <tijd> — volgende check rond <tijd+10m>".
 Check daarna de TradingView-chart op APA-signalen volgens
 docs/apa-signal-strategy.md in deze repo — er kunnen meerdere oksels
-tegelijk actief zijn, elke oksel wordt maar één keer gemeld. Stappen: (1)
+tegelijk actief zijn, elke oksel wordt maar één keer gemeld, en pas ná
+bevestiging (zie stap 4). Stappen: (1)
 onthoud via chart_get_state het huidige symbool en timeframe (hier
 schakel je aan het eind naar terug). (2) chart_set_timeframe naar 3.
 Gebruik data_get_ohlcv met een LANGERE geschiedenis (niet alleen de
@@ -67,17 +68,31 @@ ja: die oksel is uitgespeeld, verwijder de regel uit het bestand (herschrijf
 het bestand zonder die regel). (4) Vergelijk de nu gevonden impulsen/voids
 uit stap 2 met wat er (na opschoning) nog in logs/apa-active-voids.csv
 staat: voids die er al in staan zijn al gemeld, sla die over. Voor elke
-NIEUWE, nog niet eerder geziene en nog niet geretest void: dit is een
-volledige nieuwe setup — herhaal onderstaande voor elke nieuwe oksel
-apart als er meerdere tegelijk zijn. Bepaal entry (binnen de smalle
-oksel zelf, als limit order — niet ergens middenin of aan het eind van
-de volledige impuls-afstand), stop-loss (0,25%
-vanaf entry als uitgangspunt — wijk hiervan af, bijv. 0,20% of 0,30%,
-als de 3m-prijsactie een logischere plek laat zien op basis van support/
-demand/liquiditeit/volume) en take-profit op basis van deze 3m-data.
-Check ALLE confirmaties en beoordeel elk met ✅ (bevestigt), ⚠️
-(onduidelijk/zwak) of ❌ (bevestigt niet) — dit blokkeert de setup niet,
-het is puur voor de risicoclassificatie: VWAP en Volume Profile/POC en
+NIEUWE, nog niet eerder geziene en nog niet geretest void: check eerst de
+RECLAIM-BEVESTIGING voordat je 'm meldt — kijk in de 3m-candles ná het
+ontstaan van de oksel of er ergens minstens 3 candles ÓP RIJ zijn geweest
+die volledig (open én close) aan de kant sluiten waar de impuls doorheen
+brak (bij een mark-up-void: boven de bovenkant van de oksel; bij een
+mark-down-void: onder de onderkant). Nog geen 3 op rij gehaald, of eerder
+al eens teruggezakt vóórdat de 3 rond waren: deze kandidaat is nog niet
+bevestigd — sla 'm over, geen melding, geen logregel; hij wordt gewoon
+opnieuw beoordeeld bij een volgende check zodra er meer candles bij zijn
+gekomen. Wél 3 op rij gehaald: dit is een bevestigde, volledige nieuwe
+setup — herhaal de rest van deze stap voor elke nieuw bevestigde oksel
+apart als er meerdere tegelijk zijn. Bepaal entry als de kant van de
+oksel die het VERST van de impuls-richting af ligt (dus bij een
+mark-up-void de ONDERKANT van de oksel, bij een mark-down-void de
+BOVENKANT — niet de kant waar de impuls doorheen brak), als limit order.
+Stop-loss: 0,25% vanaf entry (letterlijk cursuscijfer, module 3) — mag
+krapper als de 3m-prijsactie een dichterbij gelegen, logische plek laat
+zien op basis van support/demand/liquiditeit/volume, maar ga niet verder
+dan 0,25%. Take-profit: twee niveaus — TP1 op 1x de SL-afstand (dus ook
+0,25% vanaf entry), TP2 op 2x de SL-afstand (0,50%) — tenzij deze
+3m-data een duidelijk betere eerstvolgende liquiditeitszone/swing-niveau
+laat zien. Check ALLE confirmaties en beoordeel elk met ✅ (bevestigt), ⚠️
+(onduidelijk/zwak) of ❌ (bevestigt niet) — dit blokkeert de setup niet
+(de reclaim-bevestiging hierboven is de enige harde voorwaarde), het is
+puur voor de risicoclassificatie: VWAP en Volume Profile/POC en
 VPSV en Supply/Demand-liquiditeitszones via data_get_study_values/
 data_get_pine_lines/data_get_pine_boxes op de 3m-chart; daarna kort
 chart_set_timeframe naar 15 voor de MTF-trend én de range-positie op
@@ -97,9 +112,10 @@ dit signalering is, geen advies — en voeg de oksel toe aan
 logs/apa-active-voids.csv via echo "<timestamp iso>,<richting>,
 <voidLow>,<voidHigh>" >> logs/apa-active-voids.csv zodat 'm niet
 nogmaals gemeld wordt. (5) chart_set_timeframe terug naar het timeframe
-uit stap 1. Log voor elke deze-check NIEUW gesignaleerde oksel een regel
-in logs/apa-signal-log.csv (en minstens één regel per check, ook als er
-niks nieuws was — dan richting=geen) via een Bash-commando in de vorm
+uit stap 1. Log voor elke deze-check NIEUW gesignaleerde (dus bevestigde)
+oksel een regel in logs/apa-signal-log.csv (en minstens één regel per
+check, ook als er niks nieuws was — dan richting=geen) via een
+Bash-commando in de vorm
 echo "<timestamp iso>,<richting: long/short/geen>,<htf: ✅/⚠️/❌/n.v.t.>,
 <mtf: ✅/⚠️/❌/n.v.t.>,<range_positie: ✅/⚠️/❌/n.v.t.>,<vwap:
 ✅/⚠️/❌/n.v.t.>,<volume_profile: ✅/⚠️/❌/n.v.t.>,<vpsv: ✅/⚠️/❌/n.v.t.>,
