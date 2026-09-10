@@ -26,7 +26,9 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
-//   pivot-punt is. De SL-afstand is dus per trade anders.
+//   pivot-punt is. De SL-afstand is dus per trade anders, maar begrensd
+//   op maximaal `maxSlPercent` (standaard 1,0%) - ligt het pivot-punt
+//   verder weg, dan wordt de SL afgekapt tot dat maximum.
 // - Take-profit schaalt in drie niveaus mee met die (variabele)
 //   SL-afstand, als R-multiples (standaard 1R/2R/4R, elk instelbaar), i.p.v.
 //   een vast percentage of de eerstvolgende liquiditeitszone/swing-high/low
@@ -55,6 +57,7 @@ volLen          = input.int(20, "Volume-gemiddelde-lengte")
 volMult         = input.float(2.0, "Impuls vereist volume x dit gemiddelde - hoger = strenger")
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
 slFallbackPercent = input.float(0.25, "SL-afstand vanaf entry (%) - fallback als er geen bruikbaar pivot-punt is") / 100
+maxSlPercent    = input.float(1.0, "Maximum SL-afstand vanaf entry (%) - kapt de structurele SL af als het pivot-punt te ver weg ligt") / 100
 tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand)")
 tp1Portion      = input.float(40, "TP1: % van positie sluiten")
 tp2RMultiple    = input.float(2.0, "TP2 (x SL-afstand)")
@@ -180,7 +183,9 @@ if isImpulseUp and longHardOk and longConfirmCount >= minConfirmations
     // SL op de onderkant van de recente (lokale) range/structuur - het
     // laatste pivot-low - met een percentage-fallback als dat er niet is
     // of aan de verkeerde kant van entry ligt.
-    slPrice    = (not na(lastPivotLow) and lastPivotLow < entryPrice) ? lastPivotLow : entryPrice * (1 - slFallbackPercent)
+    slPriceRaw = (not na(lastPivotLow) and lastPivotLow < entryPrice) ? lastPivotLow : entryPrice * (1 - slFallbackPercent)
+    // Kap de SL-afstand af op maxSlPercent als het pivot-punt te ver weg ligt.
+    slPrice    = math.max(slPriceRaw, entryPrice * (1 - maxSlPercent))
     riskDist   = entryPrice - slPrice
     tp1Price   = entryPrice + riskDist * tp1RMultiple
     tp2Price   = entryPrice + riskDist * tp2RMultiple
@@ -202,7 +207,9 @@ if isImpulseDown and shortHardOk and shortConfirmCount >= minConfirmations
     // SL op de bovenkant van de recente (lokale) range/structuur - het
     // laatste pivot-high - met een percentage-fallback als dat er niet is
     // of aan de verkeerde kant van entry ligt.
-    slPrice    = (not na(lastPivotHigh) and lastPivotHigh > entryPrice) ? lastPivotHigh : entryPrice * (1 + slFallbackPercent)
+    slPriceRaw = (not na(lastPivotHigh) and lastPivotHigh > entryPrice) ? lastPivotHigh : entryPrice * (1 + slFallbackPercent)
+    // Kap de SL-afstand af op maxSlPercent als het pivot-punt te ver weg ligt.
+    slPrice    = math.min(slPriceRaw, entryPrice * (1 + maxSlPercent))
     riskDist   = slPrice - entryPrice
     tp1Price   = entryPrice - riskDist * tp1RMultiple
     tp2Price   = entryPrice - riskDist * tp2RMultiple

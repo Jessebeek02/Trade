@@ -21,7 +21,10 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   laatste pivot-punt (bovenkant lokale range voor short, onderkant voor
   long — het "structurele" niveau, zoals je zelf op de chart aanwees),
   met `slFallbackPercent` (standaard 0,25%) als terugvaloptie wanneer er
-  geen bruikbaar pivot-punt is. De SL-afstand verschilt dus per trade.
+  geen bruikbaar pivot-punt is. De SL-afstand verschilt dus per trade,
+  maar is begrensd op maximaal `maxSlPercent` (standaard 1,0%) — ligt het
+  pivot-punt verder weg dan dat, dan wordt de SL afgekapt tot dat
+  maximum.
 - **Take-profit schaalt mee met die SL-afstand**: drie niveaus, als
   R-multiples van de (variabele) SL-afstand — standaard TP1 = 1x, TP2 =
   2x, TP3 = 4x, waarvan resp. 40%/40%/20% van de positie sluit. Alle zes
