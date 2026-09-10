@@ -38,17 +38,18 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   entry sluit.
 - **Filters om minder, sterkere setups te krijgen** (dit wijkt af van de
   live-bot, die blokkeert bewust niets):
-  - Impuls-drempel en volume-eis staan standaard op **2,5x** (i.p.v.
-    1,8x) — minder maar overtuigender impulsen.
-  - **HTF- en MTF-trend zijn een harde vereiste** geworden (moeten
-    allebei kloppen) — geen tegen-de-trend-trades meer. Dit zijn dus geen
-    "confirmaties" meer die je kunt uitzetten via `minConfirmations`.
-  - De overige **5** confirmaties (Range-positie, VWAP, POC, VPSV,
-    Supply/Demand) blijven optioneel: `minConfirmations` (standaard 3)
-    bepaalt hoeveel daarvan minstens moeten kloppen. Zet 'm op 0 voor
-    alleen de HTF/MTF-poort, zonder verdere eisen. **Let op:** zet 'm niet
-    op het maximum (5) — dan moeten alle vijf tegelijk kloppen, wat
-    zelden gebeurt.
+  - Impuls-drempel en volume-eis staan standaard op **2,0x** (i.p.v.
+    1,8x) — minder maar overtuigender impulsen. Een 2,5x-versie bleek te
+    streng (3 trades in 3,5 week).
+  - **HTF- en MTF-trend waren kort een harde vereiste** (moesten allebei
+    kloppen), maar dat gaf te weinig trades (6) om iets te kunnen
+    concluderen. Ze zijn nu weer gewone, optionele confirmaties, net als
+    de andere 5.
+  - Alle **7** confirmaties (HTF, MTF, Range-positie, VWAP, POC, VPSV,
+    Supply/Demand) tellen mee: `minConfirmations` (standaard 3) bepaalt
+    hoeveel daarvan minstens moeten kloppen, ongeacht welke. **Let op:**
+    zet 'm niet op het maximum (7) — dan moeten alle zeven tegelijk
+    kloppen, wat zelden gebeurt.
 - Slechts één actieve pending oksel per richting tegelijk — de live-bot
   kan meerdere tegelijk bijhouden, dit script (nog) niet.
 
