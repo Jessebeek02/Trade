@@ -1,1 +1,2 @@
 datum,symbool,richting,entry,sl,tp,exit_prijs,uitkomst,r_gerealiseerd,confirmaties_bij_entry,notities
+2026-09-10,MEXC:BTCUSDT.P,long,78225,78004,,78004,sl,-1,"HTF⚠️,MTF⚠️,Range✅,VWAP✅,VP⚠️,VPSV✅,S/D❌","Entry/SL wijken af van bot-signaal (bot: entry 78.023, SL 77.828, TP 78.900) - zelf ingestapt op 78.225 met SL 78.004, geraakt."
