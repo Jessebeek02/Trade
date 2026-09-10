@@ -33,15 +33,19 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   resterende deel (TP2+TP3) naar de entry-prijs — die trade kan vanaf dan
   geen verlies meer worden, hooguit quitte spelen als de rest ook op
   entry sluit.
-- Impuls-detectie is een ATR-gebaseerde drempel + volume-eis
-  (instelbaar), geen exacte cursus-definitie — die was nooit hard
-  bevestigd (zie `docs/apa-signal-strategy.md`).
-- **`minConfirmations`-filter**: standaard worden alleen oksels genomen
-  met minstens dit aantal confirmaties (van de 7, standaard 4). Zet 'm op
-  0 om — net als de live-bot — alle gevonden oksels te nemen ongeacht
-  confirmaties. **Let op:** zet 'm niet op het maximum (7) — dan moeten
-  alle confirmaties tegelijk kloppen, wat vrijwel nooit gebeurt en tot
-  0 trades leidt (dat overkwam de `4 van 4`-test hiervoor ook al).
+- **Filters om minder, sterkere setups te krijgen** (dit wijkt af van de
+  live-bot, die blokkeert bewust niets):
+  - Impuls-drempel en volume-eis staan standaard op **2,5x** (i.p.v.
+    1,8x) — minder maar overtuigender impulsen.
+  - **HTF- en MTF-trend zijn een harde vereiste** geworden (moeten
+    allebei kloppen) — geen tegen-de-trend-trades meer. Dit zijn dus geen
+    "confirmaties" meer die je kunt uitzetten via `minConfirmations`.
+  - De overige **5** confirmaties (Range-positie, VWAP, POC, VPSV,
+    Supply/Demand) blijven optioneel: `minConfirmations` (standaard 3)
+    bepaalt hoeveel daarvan minstens moeten kloppen. Zet 'm op 0 voor
+    alleen de HTF/MTF-poort, zonder verdere eisen. **Let op:** zet 'm niet
+    op het maximum (5) — dan moeten alle vijf tegelijk kloppen, wat
+    zelden gebeurt.
 - Slechts één actieve pending oksel per richting tegelijk — de live-bot
   kan meerdere tegelijk bijhouden, dit script (nog) niet.
 

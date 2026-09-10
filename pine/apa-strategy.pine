@@ -16,10 +16,12 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //     richting bevestigt.
 //   - Supply/Demand: nabijheid van een recent pivot-high/low (swing-punt)
 //     bij de oksel, als benadering van een liquiditeits-/S&D-zone.
-// - Standaard worden alleen oksels genomen met minstens `minConfirmations`
-//   confirmaties (van 7) - zet dat op 0 om, net als de live-bot, ALLE
-//   gevonden oksels te nemen ongeacht confirmaties. Zo kun je in de
-//   Strategy Tester zelf vergelijken.
+// - Filters om minder maar sterkere setups te krijgen (afwijkt van de
+//   live-bot, die blokkeert niets): impuls-drempel en volume-eis staan
+//   hoger (2.5x i.p.v. 1.8x), HTF- en MTF-trend zijn nu een HARDE
+//   vereiste (moeten allebei kloppen, geen tegen-de-trend-trades meer),
+//   en van de overige 5 confirmaties (Range/VWAP/POC/VPSV/S&D) moeten er
+//   minstens `minConfirmations` (standaard 3) meekloppen.
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
@@ -46,10 +48,10 @@ mtf             = input.timeframe("15", "MTF voor tussenliggende confirmatie")
 mtfEmaLen       = input.int(50, "MTF EMA-lengte (trendfilter)")
 rangeLen        = input.int(100, "Range-lengte voor range-positie (bars op HTF)")
 impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
-impulseAtrMult  = input.float(1.8, "Impuls-drempel (x ATR)")
+impulseAtrMult  = input.float(2.5, "Impuls-drempel (x ATR) - hoger = minder maar overtuigender impulsen")
 atrLen          = input.int(14, "ATR-lengte")
 volLen          = input.int(20, "Volume-gemiddelde-lengte")
-volMult         = input.float(1.8, "Impuls vereist volume x dit gemiddelde (overtuigend)")
+volMult         = input.float(2.5, "Impuls vereist volume x dit gemiddelde - hoger = strenger")
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
 slFallbackPercent = input.float(0.25, "SL-afstand vanaf entry (%) - fallback als er geen bruikbaar pivot-punt is") / 100
 tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand)")
@@ -64,7 +66,7 @@ pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
 pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
 pivotLen        = input.int(10, "Pivot-lengte voor Supply/Demand-benadering")
 pivotProxAtrMult = input.float(2.0, "Supply/Demand-nabijheid (x ATR)")
-minConfirmations = input.int(4, "Min. aantal confirmaties (van 7) - 0 = alle oksels")
+minConfirmations = input.int(3, "Min. aantal van de 5 optionele confirmaties (Range/VWAP/POC/VPSV/S&D) - 0 = alleen HTF+MTF nodig")
 
 atr    = ta.atr(atrLen)
 volAvg = ta.sma(volume, volLen)
@@ -139,24 +141,25 @@ if not na(pivotHighVal)
 if not na(pivotLowVal)
     lastPivotLow := pivotLowVal
 
-// ── Confirmatie-telling per richting (7 confirmaties) ───────────────────
-longHtfOk    = htfUptrend
-longMtfOk    = mtfUptrend
+// ── HTF+MTF: nu een HARDE vereiste (geen confirmatie meer, maar poort) ──
+// De overige 5 confirmaties blijven optioneel, geteld tegen minConfirmations.
+longHardOk   = htfUptrend and mtfUptrend
+shortHardOk  = htfDowntrend and mtfDowntrend
+
+// ── Confirmatie-telling per richting (5 optionele confirmaties) ─────────
 longRangeOk  = htfRangePos < (1 - rangeExtreme)
 longVwapOk   = close < vwapVal
 longPocOk    = pocPrice < originLow or pocPrice > originHigh
 longVpsvOk   = sessionVolDelta > 0
 longSdOk     = not na(lastPivotLow) and math.abs(originLow - lastPivotLow) < atr * pivotProxAtrMult
-longConfirmCount = (longHtfOk ? 1 : 0) + (longMtfOk ? 1 : 0) + (longRangeOk ? 1 : 0) + (longVwapOk ? 1 : 0) + (longPocOk ? 1 : 0) + (longVpsvOk ? 1 : 0) + (longSdOk ? 1 : 0)
+longConfirmCount = (longRangeOk ? 1 : 0) + (longVwapOk ? 1 : 0) + (longPocOk ? 1 : 0) + (longVpsvOk ? 1 : 0) + (longSdOk ? 1 : 0)
 
-shortHtfOk   = htfDowntrend
-shortMtfOk   = mtfDowntrend
 shortRangeOk = htfRangePos > rangeExtreme
 shortVwapOk  = close > vwapVal
 shortPocOk   = pocPrice < originLow or pocPrice > originHigh
 shortVpsvOk  = sessionVolDelta < 0
 shortSdOk    = not na(lastPivotHigh) and math.abs(originHigh - lastPivotHigh) < atr * pivotProxAtrMult
-shortConfirmCount = (shortHtfOk ? 1 : 0) + (shortMtfOk ? 1 : 0) + (shortRangeOk ? 1 : 0) + (shortVwapOk ? 1 : 0) + (shortPocOk ? 1 : 0) + (shortVpsvOk ? 1 : 0) + (shortSdOk ? 1 : 0)
+shortConfirmCount = (shortRangeOk ? 1 : 0) + (shortVwapOk ? 1 : 0) + (shortPocOk ? 1 : 0) + (shortVpsvOk ? 1 : 0) + (shortSdOk ? 1 : 0)
 
 var int lastLongSignalBar  = na
 var int lastShortSignalBar = na
@@ -171,7 +174,7 @@ var bool  tp1Filled      = false
 // ── Entry: direct als limit order zodra de oksel ontstaat ───────────────
 // Entry = de rand van de oksel het dichtst bij de huidige prijs (het
 // eerste punt dat geraakt wordt bij een terugval naar de zone).
-if isImpulseUp and longConfirmCount >= minConfirmations
+if isImpulseUp and longHardOk and longConfirmCount >= minConfirmations
     entryPrice = originHigh
     // SL op de onderkant van de recente (lokale) range/structuur - het
     // laatste pivot-low - met een percentage-fallback als dat er niet is
@@ -193,7 +196,7 @@ if isImpulseUp and longConfirmCount >= minConfirmations
     openIsLong     := true
     tp1Filled       := false
 
-if isImpulseDown and shortConfirmCount >= minConfirmations
+if isImpulseDown and shortHardOk and shortConfirmCount >= minConfirmations
     entryPrice = originLow
     // SL op de bovenkant van de recente (lokale) range/structuur - het
     // laatste pivot-high - met een percentage-fallback als dat er niet is
