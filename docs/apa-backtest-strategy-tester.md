@@ -24,6 +24,10 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   cursus. De drie TP's delen dezelfde SL: raakt de prijs de SL voordat
   (een deel van) de TP's geraakt zijn, sluit het resterende deel van de
   positie daar.
+- **Breakeven na TP1**: zodra TP1 (standaard 0,25%) geraakt is, schuift
+  de SL van het resterende deel (TP2+TP3) naar de entry-prijs — die trade
+  kan vanaf dan geen verlies meer worden, hooguit quitte spelen als de
+  rest ook op entry sluit.
 - Impuls-detectie is een ATR-gebaseerde drempel + volume-eis
   (instelbaar), geen exacte cursus-definitie — die was nooit hard
   bevestigd (zie `docs/apa-signal-strategy.md`).
