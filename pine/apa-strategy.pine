@@ -27,16 +27,16 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   trades - teruggezet).
 // - Entry wordt NIET meer direct geplaatst zodra de oksel ontstaat. Pas als
 //   de prijs `reclaimCandles` (standaard 3) candles op rij volledig (open
-//   én close) boven de oksel sluit (long) / onder de oksel sluit (short) -
-//   dus de eerdere range daadwerkelijk "wint" - wordt er een limit order
-//   geplaatst. Dit is puur een confirmatie-poort: de entry-prijs zelf
-//   blijft op het oksel-niveau (bevroren op het moment van het signaal),
-//   verschuift niet mee met de reclaim-candles. (Een eerdere variant liet
-//   de entry meeschuiven naar de laagste low/hoogste high van de
-//   reclaim-candles zelf, dichter bij de actuele prijs - dat wordt hier
-//   niet gebruikt.) SL/TP worden wel pas ná bevestiging berekend, met de
-//   op dat moment actuele pivot. Eén candle die niet aan de reclaim-eis
-//   voldoet annuleert de wachtende setup volledig.
+//   én close) boven de BOVENKANT van de oksel sluit (long) / onder de
+//   ONDERKANT sluit (short) - dus de void daadwerkelijk "gewonnen" is -
+//   wordt er een limit order geplaatst. De entry-prijs is dan de ANDERE
+//   kant van de oksel: voor long de onderkant (`originLow` - het diepste
+//   punt van de void, zoals aangewezen: de entry-lijn zit onderaan de
+//   void), voor short de bovenkant (`originHigh`). Bevroren op het moment
+//   van het signaal, verschuift niet mee met de reclaim-candles. SL/TP
+//   worden wel pas ná bevestiging berekend, met de op dat moment actuele
+//   pivot. Eén candle die niet aan de reclaim-eis voldoet annuleert de
+//   wachtende setup volledig.
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
@@ -231,44 +231,52 @@ var bool  tp1Filled      = false
 // ── Wachtfase: pas plaatsen zodra de oksel "gewonnen" is ────────────────
 // Niet meer direct een limit order bij het ontstaan van de oksel - eerst
 // moet de prijs `reclaimCandles` candles op rij volledig (open én close)
-// boven de oksel sluiten (long) / onder de oksel sluiten (short). Dit is
-// PUUR een confirmatie-poort - de entry zelf blijft op het oksel-niveau
-// (`longOriginRef`/`shortOriginRef`, bevroren op het moment van het
-// signaal), verschuift dus niet mee met de reclaim-candles. SL/TP worden
+// boven de bovenkant van de oksel sluiten (long) / onder de onderkant
+// sluiten (short) - dat is de confirmatie-poort (`longGateRef`/
+// `shortGateRef`). De entry-prijs zelf is de ANDERE kant van de oksel:
+// voor een long de onderkant (`originLow`, het diepste punt van de
+// void/basis - zoals aangewezen: de void wordt getekend vanaf de
+// oorsprong van de impuls, en de entry-lijn zit onderaan die void), voor
+// een short de bovenkant (`originHigh`). Bevroren op het moment van het
+// signaal, verschuift dus niet mee met de reclaim-candles. SL/TP worden
 // wel pas ná bevestiging berekend, met de op dat moment actuele pivot.
 var bool  longPending      = false
-var float longOriginRef    = na
+var float longGateRef      = na
+var float longEntryLevel   = na
 var int   longArmBar       = na
 var int   longConfirmBars  = 0
 
 var bool  shortPending      = false
-var float shortOriginRef    = na
+var float shortGateRef      = na
+var float shortEntryLevel   = na
 var int   shortArmBar       = na
 var int   shortConfirmBars  = 0
 
 // Signaal: oksel + confirmaties kloppen - nog geen niveaus berekenen,
 // alleen de bevestigingsteller starten.
 if isImpulseUp and longConfirmCount >= minConfirmations
-    longOriginRef   := originHigh
+    longGateRef     := originHigh
+    longEntryLevel  := originLow
     longArmBar      := bar_index
     longConfirmBars := 0
     longPending     := true
 
 if isImpulseDown and shortConfirmCount >= minConfirmations
-    shortOriginRef   := originLow
+    shortGateRef     := originLow
+    shortEntryLevel  := originHigh
     shortArmBar      := bar_index
     shortConfirmBars := 0
     shortPending     := true
 
 // Bevestiging bijhouden (start de bar ná het signaal) - elke candle die
 // niet volledig boven/onder de oksel sluit, annuleert de wachtende setup.
-// Zodra bevestigd: entry = het oksel-niveau zelf, SL/TP pas nu berekend
-// op basis van de op dat moment actuele pivot.
+// Zodra bevestigd: entry = de onderkant van de oksel (long) / bovenkant
+// (short), SL/TP pas nu berekend op basis van de actuele pivot.
 if longPending and bar_index > longArmBar
-    if open > longOriginRef and close > longOriginRef
+    if open > longGateRef and close > longGateRef
         longConfirmBars += 1
         if longConfirmBars >= reclaimCandles
-            entryPrice = longOriginRef
+            entryPrice = longEntryLevel
             slPriceRaw = (not na(lastPivotLow) and lastPivotLow < entryPrice) ? lastPivotLow : entryPrice * (1 - slFallbackPercent)
             slPrice    = math.max(slPriceRaw, entryPrice * (1 - maxSlPercent))
             riskDist   = entryPrice - slPrice
@@ -289,10 +297,10 @@ if longPending and bar_index > longArmBar
         longConfirmBars := 0
 
 if shortPending and bar_index > shortArmBar
-    if open < shortOriginRef and close < shortOriginRef
+    if open < shortGateRef and close < shortGateRef
         shortConfirmBars += 1
         if shortConfirmBars >= reclaimCandles
-            entryPrice = shortOriginRef
+            entryPrice = shortEntryLevel
             slPriceRaw = (not na(lastPivotHigh) and lastPivotHigh > entryPrice) ? lastPivotHigh : entryPrice * (1 + slFallbackPercent)
             slPrice    = math.min(slPriceRaw, entryPrice * (1 + maxSlPercent))
             riskDist   = slPrice - entryPrice

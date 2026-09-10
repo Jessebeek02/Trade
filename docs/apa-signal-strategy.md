@@ -34,7 +34,11 @@ kansen op de chart volgens een vast patroon, met bijbehorend risico/R:R.
    de oksel, niet pas na een latere "reactie" of tweede bevestiging. (Dit
    is een correctie op een eerdere versie van dit document die een
    "wacht op duidelijke reactie"-regel bevatte — dat was nooit uit de
-   cursus-audio bevestigd en was een onterechte verstrenging.)
+   cursus-audio bevestigd en was een onterechte verstrenging.) De precieze
+   entry-lijn zit aan de kant van de oksel die het **verst** van de
+   impuls-richting af ligt: bij een mark-up-void (long) de **onderkant**
+   van de oksel (het diepste punt van de void), bij een mark-down-void
+   (short) de **bovenkant**.
 
 ## Eén meldingsmoment per oksel: zodra hij ontstaat
 
