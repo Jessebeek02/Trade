@@ -17,6 +17,15 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
     `pocLookback` bars.
   - VPSV: cumulatief sessievolume-delta sinds sessiestart.
   - Supply/Demand: nabijheid van een recent pivot-high/low.
+- **Entry pas ná bevestiging, niet direct bij het ontstaan van de oksel**:
+  zodra een oksel + confirmaties kloppen, wordt er nog geen order
+  geplaatst. Pas als de prijs `reclaimCandles` (standaard 3) candles op
+  rij volledig — open én close — boven de oksel sluit (long) / onder de
+  oksel sluit (short), wordt de limit order alsnog geplaatst op het
+  oksel-niveau van het moment van het signaal. Eén candle die niet aan de
+  eis voldoet annuleert de wachtende setup helemaal (geen nieuwe poging
+  totdat er een nieuw signaal komt). Dit is een correctie op de eerdere
+  versie die altijd direct instapte.
 - **SL op structuur, niet op een vast percentage**: de SL staat op het
   laatste pivot-punt (bovenkant lokale range voor short, onderkant voor
   long — het "structurele" niveau, zoals je zelf op de chart aanwees),

@@ -25,6 +25,13 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   andere 5, van de 7 moeten er minstens `minConfirmations` (standaard 3)
 //   meekloppen (4 werd getest, gaf géén betere kwaliteit, alleen minder
 //   trades - teruggezet).
+// - Entry wordt NIET meer direct geplaatst zodra de oksel ontstaat. Pas als
+//   de prijs `reclaimCandles` (standaard 3) candles op rij volledig (open
+//   én close) boven de oksel sluit (long) / onder de oksel sluit (short) -
+//   dus de eerdere range daadwerkelijk "wint" - wordt de limit order op
+//   het oksel-niveau geplaatst. Eén candle die niet aan de eis voldoet
+//   annuleert de wachtende setup. Dit is een correctie op een eerdere
+//   versie die direct instapte bij het ontstaan van de oksel.
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
@@ -92,6 +99,7 @@ pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
 pivotLen        = input.int(10, "Pivot-lengte voor Supply/Demand-benadering")
 pivotProxAtrMult = input.float(2.0, "Supply/Demand-nabijheid (x ATR)")
 minConfirmations = input.int(3, "Min. aantal van de 7 confirmaties (HTF/MTF/Range/VWAP/POC/VPSV/S&D) - zet niet op het maximum (7)")
+reclaimCandles  = input.int(3, "Aantal candles die open+close boven/onder de oksel moeten sluiten voordat de trade geplaatst wordt")
 
 // ── Automatische HTF/MTF op basis van de chart-timeframe (LTF) ──────────
 f_autoMtf() =>
@@ -215,9 +223,33 @@ var float openTp2Price   = na
 var bool  openIsLong     = false
 var bool  tp1Filled      = false
 
-// ── Entry: direct als limit order zodra de oksel ontstaat ───────────────
-// Entry = de rand van de oksel het dichtst bij de huidige prijs (het
-// eerste punt dat geraakt wordt bij een terugval naar de zone).
+// ── Wachtfase: pas plaatsen zodra de oksel "gewonnen" is ────────────────
+// Niet meer direct een limit order bij het ontstaan van de oksel - eerst
+// moet de prijs `reclaimCandles` candles op rij volledig (open én close)
+// boven de oksel sluiten (long) / onder de oksel sluiten (short), als
+// bevestiging dat de eerdere range daadwerkelijk teruggewonnen is. Pas
+// dan wordt de limit order daadwerkelijk geplaatst, op het oksel-niveau
+// van het moment van het signaal (niet het niveau tijdens de bevestiging).
+var bool  longPending      = false
+var float longEntryPrice   = na
+var float longSlPrice      = na
+var float longTp1Price     = na
+var float longTp2Price     = na
+var float longOriginRef    = na
+var int   longArmBar       = na
+var int   longConfirmBars  = 0
+
+var bool  shortPending      = false
+var float shortEntryPrice   = na
+var float shortSlPrice      = na
+var float shortTp1Price     = na
+var float shortTp2Price     = na
+var float shortOriginRef    = na
+var int   shortArmBar       = na
+var int   shortConfirmBars  = 0
+
+// Signaal: oksel + confirmaties kloppen - bereken en bewaar de niveaus,
+// maar plaats nog niets. Start de bevestigingsteller.
 if isImpulseUp and longConfirmCount >= minConfirmations
     entryPrice = originHigh
     // SL op de onderkant van de recente (lokale) range/structuur - het
@@ -227,17 +259,14 @@ if isImpulseUp and longConfirmCount >= minConfirmations
     // Kap de SL-afstand af op maxSlPercent als het pivot-punt te ver weg ligt.
     slPrice    = math.max(slPriceRaw, entryPrice * (1 - maxSlPercent))
     riskDist   = entryPrice - slPrice
-    tp1Price   = entryPrice + riskDist * tp1RMultiple
-    tp2Price   = entryPrice + riskDist * tp2RMultiple
-    strategy.cancel("APA Long")
-    strategy.entry("APA Long", strategy.long, limit=entryPrice)
-    strategy.exit("APA Long TP1", "APA Long", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
-    strategy.exit("APA Long TP2", "APA Long", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
-    lastLongSignalBar := bar_index
-    openEntryPrice := entryPrice
-    openTp2Price   := tp2Price
-    openIsLong     := true
-    tp1Filled       := false
+    longEntryPrice  := entryPrice
+    longSlPrice     := slPrice
+    longTp1Price    := entryPrice + riskDist * tp1RMultiple
+    longTp2Price    := entryPrice + riskDist * tp2RMultiple
+    longOriginRef   := originHigh
+    longArmBar      := bar_index
+    longConfirmBars := 0
+    longPending     := true
 
 if isImpulseDown and shortConfirmCount >= minConfirmations
     entryPrice = originLow
@@ -248,17 +277,52 @@ if isImpulseDown and shortConfirmCount >= minConfirmations
     // Kap de SL-afstand af op maxSlPercent als het pivot-punt te ver weg ligt.
     slPrice    = math.min(slPriceRaw, entryPrice * (1 + maxSlPercent))
     riskDist   = slPrice - entryPrice
-    tp1Price   = entryPrice - riskDist * tp1RMultiple
-    tp2Price   = entryPrice - riskDist * tp2RMultiple
-    strategy.cancel("APA Short")
-    strategy.entry("APA Short", strategy.short, limit=entryPrice)
-    strategy.exit("APA Short TP1", "APA Short", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
-    strategy.exit("APA Short TP2", "APA Short", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
-    lastShortSignalBar := bar_index
-    openEntryPrice := entryPrice
-    openTp2Price   := tp2Price
-    openIsLong     := false
-    tp1Filled       := false
+    shortEntryPrice  := entryPrice
+    shortSlPrice     := slPrice
+    shortTp1Price    := entryPrice - riskDist * tp1RMultiple
+    shortTp2Price    := entryPrice - riskDist * tp2RMultiple
+    shortOriginRef   := originLow
+    shortArmBar      := bar_index
+    shortConfirmBars := 0
+    shortPending     := true
+
+// Bevestiging bijhouden (start de bar ná het signaal) - elke candle die
+// niet volledig boven/onder de oksel sluit, annuleert de wachtende setup.
+if longPending and bar_index > longArmBar
+    if open > longOriginRef and close > longOriginRef
+        longConfirmBars += 1
+        if longConfirmBars >= reclaimCandles
+            strategy.cancel("APA Long")
+            strategy.entry("APA Long", strategy.long, limit=longEntryPrice)
+            strategy.exit("APA Long TP1", "APA Long", qty_percent=tp1Portion, stop=longSlPrice, limit=longTp1Price)
+            strategy.exit("APA Long TP2", "APA Long", qty_percent=tp2Portion, stop=longSlPrice, limit=longTp2Price)
+            lastLongSignalBar := bar_index
+            openEntryPrice    := longEntryPrice
+            openTp2Price      := longTp2Price
+            openIsLong        := true
+            tp1Filled         := false
+            longPending       := false
+    else
+        longPending     := false
+        longConfirmBars := 0
+
+if shortPending and bar_index > shortArmBar
+    if open < shortOriginRef and close < shortOriginRef
+        shortConfirmBars += 1
+        if shortConfirmBars >= reclaimCandles
+            strategy.cancel("APA Short")
+            strategy.entry("APA Short", strategy.short, limit=shortEntryPrice)
+            strategy.exit("APA Short TP1", "APA Short", qty_percent=tp1Portion, stop=shortSlPrice, limit=shortTp1Price)
+            strategy.exit("APA Short TP2", "APA Short", qty_percent=tp2Portion, stop=shortSlPrice, limit=shortTp2Price)
+            lastShortSignalBar := bar_index
+            openEntryPrice     := shortEntryPrice
+            openTp2Price       := shortTp2Price
+            openIsLong         := false
+            tp1Filled          := false
+            shortPending       := false
+    else
+        shortPending     := false
+        shortConfirmBars := 0
 
 // Detecteer een gedeeltelijke sluiting (TP1 geraakt) via een afname van de
 // positiegrootte terwijl er nog een positie open staat, en verplaats dan
