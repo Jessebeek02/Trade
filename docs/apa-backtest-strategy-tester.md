@@ -29,30 +29,42 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   worden wel pas ná bevestiging berekend, met de op dat moment actuele
   pivot. Eén candle die niet aan de eis voldoet annuleert de wachtende
   setup helemaal (geen nieuwe poging totdat er een nieuw signaal komt).
-- **SL op structuur, niet op een vast percentage**: de SL staat op het
-  laatste pivot-punt (bovenkant lokale range voor short, onderkant voor
-  long — het "structurele" niveau, zoals je zelf op de chart aanwees),
-  met `slFallbackPercent` (standaard 0,25%) als terugvaloptie wanneer er
-  geen bruikbaar pivot-punt is. De SL-afstand verschilt dus per trade,
-  maar is begrensd op maximaal `maxSlPercent` (standaard 1,0%) — ligt het
-  pivot-punt verder weg dan dat, dan wordt de SL afgekapt tot dat
-  maximum.
+- **SL op structuur, begrensd op 0,25%**: de SL staat op het laatste
+  pivot-punt (bovenkant lokale range voor short, onderkant voor long —
+  zoals je zelf op de chart aanwees), met `slFallbackPercent` (standaard
+  0,25%) als terugvaloptie wanneer er geen bruikbaar pivot-punt is. De
+  SL-afstand is begrensd op maximaal `maxSlPercent` (standaard **0,25%**
+  — overeenkomstig de letterlijke "SL = 0,25%" uit module 3, Scalpen &
+  LTF-entry, van de cursus-naslagdocumenten) — ligt het pivot-punt
+  verder weg dan dat, dan wordt de SL afgekapt tot dat maximum. Ligt een
+  pivot-punt dichterbij, dan wordt die (krappere) SL gebruikt.
 - **Take-profit schaalt mee met die SL-afstand**: twee niveaus, als
-  R-multiples van de (variabele) SL-afstand — standaard TP1 = 1x, TP2 =
-  2,5x, waarvan elk 50% van de positie sluit. Was eerst drie niveaus
-  (1x/2x/4x, 40/40/20%), maar met kleine targets en 3 losse exit-orders
-  per trade woog de commissie (fee per fill op MEXC) te zwaar mee t.o.v.
-  de winst — vandaar terug naar twee niveaus (minder fill-momenten). Een
-  bredere TP1 (1,5x) is ook getest maar verslechterde het resultaat
-  (lagere hit-rate vóórdat de SL raakt) — TP1 staat daarom weer op 1x.
-  Alle vier waardes los instelbaar via de Inputs, in plaats van de
-  eerstvolgende liquiditeitszone/swing-high/low uit de cursus. De twee
-  TP's delen dezelfde SL: raakt de prijs de SL voordat (een deel van) de
-  TP's geraakt zijn, sluit het resterende deel van de positie daar.
+  R-multiples van de (variabele) SL-afstand — standaard **TP1 = 1x, TP2
+  = 2x**, waarvan elk 50% van de positie sluit — overeenkomstig de
+  letterlijke "TP1 = 0,25% (1:1) / TP2 = 0,50% (1:2)" uit dezelfde
+  cursus-module (was eerder 2,5x, teruggezet naar 2x). De cursus toonde
+  ook vage "30/40%"/"40/20%"-percentages bij de partiële afbouw, maar die
+  konden zonder audio niet betrouwbaar worden herleid — 50/50 blijft hier
+  een eigen, simpele keuze. Was eerst drie niveaus (1x/2x/4x, 40/40/20%),
+  maar met kleine targets en 3 losse exit-orders per trade woog de
+  commissie (fee per fill op MEXC) te zwaar mee t.o.v. de winst — vandaar
+  terug naar twee niveaus (minder fill-momenten). Alle vier waardes los
+  instelbaar via de Inputs. De twee TP's delen dezelfde SL: raakt de
+  prijs de SL voordat (een deel van) de TP's geraakt zijn, sluit het
+  resterende deel van de positie daar.
 - **Breakeven na TP1**: zodra TP1 geraakt is, schuift de SL van het
   resterende deel (TP2) naar de entry-prijs — die trade kan vanaf dan
   geen verlies meer worden, hooguit quitte spelen als de rest ook op
   entry sluit.
+- **Risk-based positiegrootte**: elke trade riskeert een vast percentage
+  van het kapitaal (`riskPercent`, standaard 1%) — de ordergrootte wordt
+  teruggerekend uit de entry/SL-afstand (risicobedrag / afstand), zoals
+  DoopieCash's eigen "Positie Grootte Calculator" (module 3) dit ook
+  rekent. Was eerst een vast percentage van het kapitaal als ordergrootte
+  (`percent_of_equity`, los van de SL-afstand) — dat maakte het
+  daadwerkelijke risico per trade ongelijk: een krappe SL riskeerde in
+  R-termen onbedoeld meer dan een ruime SL, en de profit factor/R-cijfers
+  van eerdere tests zijn dus niet 1-op-1 vergelijkbaar met deze versie.
 - **Filters om minder, sterkere setups te krijgen** (dit wijkt af van de
   live-bot, die blokkeert bewust niets):
   - Impuls-drempel en volume-eis staan standaard op **2,0x** (i.p.v.

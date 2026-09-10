@@ -1,5 +1,7 @@
 //@version=6
-strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, initial_capital=10000, currency=currency.USD)
+strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1, initial_capital=10000, currency=currency.USD)
+// default_qty_* wordt hier nooit echt gebruikt - elke strategy.entry() krijgt
+// een expliciete qty= mee, berekend uit riskPercent (zie hieronder).
 
 // Bijgewerkt om te matchen met de actuele live-regels in
 // docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md.
@@ -40,21 +42,31 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
-//   pivot-punt is. De SL-afstand is dus per trade anders, maar begrensd
-//   op maximaal `maxSlPercent` (standaard 1,0%) - ligt het pivot-punt
-//   verder weg, dan wordt de SL afgekapt tot dat maximum.
-// - Take-profit schaalt in twee niveaus mee met die (variabele)
-//   SL-afstand, als R-multiples (standaard 1R/2,5R, elk instelbaar), i.p.v.
-//   een vast percentage of de eerstvolgende liquiditeitszone/swing-high/low
-//   uit de cursus. Standaardverdeling: 50% op TP1, 50% op TP2. Was eerst
-//   drie niveaus (1R/2R/4R, 40/40/20%), maar met kleine targets en 3 losse
-//   exit-orders per trade woog de commissie (MEXC-fees per fill) te zwaar
-//   mee - vandaar terug naar twee niveaus. Een bredere TP1 (1,5R) werd ook
-//   getest maar verslechterde het resultaat (waarschijnlijk lagere
-//   hit-rate op TP1 vóór de SL geraakt wordt) - TP1 staat daarom weer op
-//   1R, alleen het aantal exit-orders (2 i.p.v. 3) is teruggebracht. Zodra
-//   TP1 raakt, schuift de SL van het resterende deel (TP2) naar de
+//   pivot-punt is. De SL-afstand is dus per trade anders, maar begrensd op
+//   maximaal `maxSlPercent` (standaard **0,25%**, overeenkomstig de
+//   letterlijke "SL = 0,25%" uit module 3 - Scalpen/LTF-entry van de
+//   cursus) - ligt het pivot-punt verder weg, dan wordt de SL afgekapt tot
+//   dat maximum. Ligt een pivot-punt dichterbij, dan wordt die (krappere)
+//   SL gebruikt.
+// - Take-profit schaalt in twee niveaus mee met die (variabele) SL-afstand,
+//   als R-multiples: **1R / 2R** (standaard, elk instelbaar), overeenkomstig
+//   de letterlijke "TP1 = 0,25% (1:1) / TP2 = 0,50% (1:2)" uit dezelfde
+//   cursus-module. Standaardverdeling: 50% op TP1, 50% op TP2 (de cursus
+//   toonde vage "30/40%"/"40/20%"-labels bij de partiële afbouw, maar dat
+//   kon zonder audio niet betrouwbaar worden herleid - 50/50 is hier een
+//   eigen, simpele keuze). Was eerst drie niveaus (1R/2R/4R, 40/40/20%),
+//   maar met kleine targets en 3 losse exit-orders per trade woog de
+//   commissie (MEXC-fees per fill) te zwaar mee - vandaar twee niveaus.
+//   Zodra TP1 raakt, schuift de SL van het resterende deel (TP2) naar de
 //   entry-prijs (breakeven) - die trade kan dan geen verlies meer worden.
+// - Positiegrootte is **risk-based**: elke trade riskeert een vast
+//   percentage van het kapitaal (`riskPercent`, standaard 1%) - de
+//   ordergrootte wordt teruggerekend uit de entry/SL-afstand
+//   (risicobedrag / afstand), zoals de cursus dit ook rekent (DoopieCash's
+//   "Positie Grootte Calculator" in module 3). Dit was eerst een vast %
+//   van het kapitaal als ordergrootte (ongeacht SL-afstand), wat het
+//   risico per trade ongelijk maakte - een krappe SL riskeerde in
+//   R-termen onbedoeld meer dan een ruime SL.
 // - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
 //   vervangt de oude) - de live-bot kan meerdere oksels tegelijk
 //   bijhouden, dit script niet.
@@ -92,11 +104,12 @@ volLen          = input.int(20, "Volume-gemiddelde-lengte")
 volMult         = input.float(2.0, "Impuls vereist volume x dit gemiddelde - hoger = strenger")
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
 slFallbackPercent = input.float(0.25, "SL-afstand vanaf entry (%) - fallback als er geen bruikbaar pivot-punt is") / 100
-maxSlPercent    = input.float(1.0, "Maximum SL-afstand vanaf entry (%) - kapt de structurele SL af als het pivot-punt te ver weg ligt") / 100
-tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand)")
+maxSlPercent    = input.float(0.25, "Maximum SL-afstand vanaf entry (%) - kapt de structurele SL af (cursus: 0,25%)") / 100
+tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand) - cursus: 1:1")
 tp1Portion      = input.float(50, "TP1: % van positie sluiten")
-tp2RMultiple    = input.float(2.5, "TP2 (x SL-afstand)")
+tp2RMultiple    = input.float(2.0, "TP2 (x SL-afstand) - cursus: 1:2")
 tp2Portion      = input.float(50, "TP2: % van positie sluiten")
+riskPercent     = input.float(1.0, "Risico per trade (% van kapitaal) - bepaalt de ordergrootte") / 100
 maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
 pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
@@ -282,8 +295,9 @@ if longPending and bar_index > longArmBar
             riskDist   = entryPrice - slPrice
             tp1Price   = entryPrice + riskDist * tp1RMultiple
             tp2Price   = entryPrice + riskDist * tp2RMultiple
+            qty        = (strategy.equity * riskPercent) / riskDist
             strategy.cancel("APA Long")
-            strategy.entry("APA Long", strategy.long, limit=entryPrice)
+            strategy.entry("APA Long", strategy.long, qty=qty, limit=entryPrice)
             strategy.exit("APA Long TP1", "APA Long", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
             strategy.exit("APA Long TP2", "APA Long", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
             lastLongSignalBar := bar_index
@@ -306,8 +320,9 @@ if shortPending and bar_index > shortArmBar
             riskDist   = slPrice - entryPrice
             tp1Price   = entryPrice - riskDist * tp1RMultiple
             tp2Price   = entryPrice - riskDist * tp2RMultiple
+            qty        = (strategy.equity * riskPercent) / riskDist
             strategy.cancel("APA Short")
-            strategy.entry("APA Short", strategy.short, limit=entryPrice)
+            strategy.entry("APA Short", strategy.short, qty=qty, limit=entryPrice)
             strategy.exit("APA Short TP1", "APA Short", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
             strategy.exit("APA Short TP2", "APA Short", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
             lastShortSignalBar := bar_index
