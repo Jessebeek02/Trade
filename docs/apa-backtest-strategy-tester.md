@@ -17,17 +17,22 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
     `pocLookback` bars.
   - VPSV: cumulatief sessievolume-delta sinds sessiestart.
   - Supply/Demand: nabijheid van een recent pivot-high/low.
-- **Take-profit schaalt uit over drie niveaus**: standaard 40% van de
-  positie sluit op 0,25% vanaf entry, 40% op 0,50%, 20% op 1,00% — alle
-  zes waardes (3x percentage, 3x portie) los instelbaar via de Inputs, in
-  plaats van de eerstvolgende liquiditeitszone/swing-high/low uit de
-  cursus. De drie TP's delen dezelfde SL: raakt de prijs de SL voordat
-  (een deel van) de TP's geraakt zijn, sluit het resterende deel van de
-  positie daar.
-- **Breakeven na TP1**: zodra TP1 (standaard 0,25%) geraakt is, schuift
-  de SL van het resterende deel (TP2+TP3) naar de entry-prijs — die trade
-  kan vanaf dan geen verlies meer worden, hooguit quitte spelen als de
-  rest ook op entry sluit.
+- **SL op structuur, niet op een vast percentage**: de SL staat op het
+  laatste pivot-punt (bovenkant lokale range voor short, onderkant voor
+  long — het "structurele" niveau, zoals je zelf op de chart aanwees),
+  met `slFallbackPercent` (standaard 0,25%) als terugvaloptie wanneer er
+  geen bruikbaar pivot-punt is. De SL-afstand verschilt dus per trade.
+- **Take-profit schaalt mee met die SL-afstand**: drie niveaus, als
+  R-multiples van de (variabele) SL-afstand — standaard TP1 = 1x, TP2 =
+  2x, TP3 = 4x, waarvan resp. 40%/40%/20% van de positie sluit. Alle zes
+  waardes los instelbaar via de Inputs, in plaats van de eerstvolgende
+  liquiditeitszone/swing-high/low uit de cursus. De drie TP's delen
+  dezelfde SL: raakt de prijs de SL voordat (een deel van) de TP's
+  geraakt zijn, sluit het resterende deel van de positie daar.
+- **Breakeven na TP1**: zodra TP1 geraakt is, schuift de SL van het
+  resterende deel (TP2+TP3) naar de entry-prijs — die trade kan vanaf dan
+  geen verlies meer worden, hooguit quitte spelen als de rest ook op
+  entry sluit.
 - Impuls-detectie is een ATR-gebaseerde drempel + volume-eis
   (instelbaar), geen exacte cursus-definitie — die was nooit hard
   bevestigd (zie `docs/apa-signal-strategy.md`).

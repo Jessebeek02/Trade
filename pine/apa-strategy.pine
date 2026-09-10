@@ -20,12 +20,17 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   confirmaties (van 7) - zet dat op 0 om, net als de live-bot, ALLE
 //   gevonden oksels te nemen ongeacht confirmaties. Zo kun je in de
 //   Strategy Tester zelf vergelijken.
-// - Take-profit schaalt uit over drie niveaus (standaard 40% op 0,25%,
-//   40% op 0,50%, 20% op 1,00% vanaf entry - alle drie instelbaar, los
-//   van de SL-afstand) i.p.v. de eerstvolgende liquiditeitszone/
-//   swing-high/low uit de cursus. Zodra TP1 raakt, schuift de SL van het
-//   resterende deel (TP2+TP3) naar de entry-prijs (breakeven) - die trade
-//   kan dan geen verlies meer worden.
+// - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
+//   voor short, onderkant voor long) i.p.v. een vast percentage - met
+//   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
+//   pivot-punt is. De SL-afstand is dus per trade anders.
+// - Take-profit schaalt in drie niveaus mee met die (variabele)
+//   SL-afstand, als R-multiples (standaard 1R/2R/4R, elk instelbaar), i.p.v.
+//   een vast percentage of de eerstvolgende liquiditeitszone/swing-high/low
+//   uit de cursus. Standaardverdeling: 40% op TP1, 40% op TP2, 20% op TP3.
+//   Zodra TP1 raakt, schuift de SL van het resterende deel (TP2+TP3) naar
+//   de entry-prijs (breakeven) - die trade kan dan geen verlies meer
+//   worden.
 // - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
 //   vervangt de oude) - de live-bot kan meerdere oksels tegelijk
 //   bijhouden, dit script niet.
@@ -46,12 +51,12 @@ atrLen          = input.int(14, "ATR-lengte")
 volLen          = input.int(20, "Volume-gemiddelde-lengte")
 volMult         = input.float(1.8, "Impuls vereist volume x dit gemiddelde (overtuigend)")
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
-slPercent       = input.float(0.25, "SL-afstand vanaf entry (%)") / 100
-tp1Percent      = input.float(0.25, "TP1-afstand vanaf entry (%)") / 100
+slFallbackPercent = input.float(0.25, "SL-afstand vanaf entry (%) - fallback als er geen bruikbaar pivot-punt is") / 100
+tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand)")
 tp1Portion      = input.float(40, "TP1: % van positie sluiten")
-tp2Percent      = input.float(0.50, "TP2-afstand vanaf entry (%)") / 100
+tp2RMultiple    = input.float(2.0, "TP2 (x SL-afstand)")
 tp2Portion      = input.float(40, "TP2: % van positie sluiten")
-tp3Percent      = input.float(1.00, "TP3-afstand vanaf entry (%)") / 100
+tp3RMultiple    = input.float(4.0, "TP3 (x SL-afstand)")
 tp3Portion      = input.float(20, "TP3: % van positie sluiten")
 maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
@@ -168,10 +173,14 @@ var bool  tp1Filled      = false
 // eerste punt dat geraakt wordt bij een terugval naar de zone).
 if isImpulseUp and longConfirmCount >= minConfirmations
     entryPrice = originHigh
-    slPrice    = entryPrice * (1 - slPercent)
-    tp1Price   = entryPrice * (1 + tp1Percent)
-    tp2Price   = entryPrice * (1 + tp2Percent)
-    tp3Price   = entryPrice * (1 + tp3Percent)
+    // SL op de onderkant van de recente (lokale) range/structuur - het
+    // laatste pivot-low - met een percentage-fallback als dat er niet is
+    // of aan de verkeerde kant van entry ligt.
+    slPrice    = (not na(lastPivotLow) and lastPivotLow < entryPrice) ? lastPivotLow : entryPrice * (1 - slFallbackPercent)
+    riskDist   = entryPrice - slPrice
+    tp1Price   = entryPrice + riskDist * tp1RMultiple
+    tp2Price   = entryPrice + riskDist * tp2RMultiple
+    tp3Price   = entryPrice + riskDist * tp3RMultiple
     strategy.cancel("APA Long")
     strategy.entry("APA Long", strategy.long, limit=entryPrice)
     strategy.exit("APA Long TP1", "APA Long", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
@@ -186,10 +195,14 @@ if isImpulseUp and longConfirmCount >= minConfirmations
 
 if isImpulseDown and shortConfirmCount >= minConfirmations
     entryPrice = originLow
-    slPrice    = entryPrice * (1 + slPercent)
-    tp1Price   = entryPrice * (1 - tp1Percent)
-    tp2Price   = entryPrice * (1 - tp2Percent)
-    tp3Price   = entryPrice * (1 - tp3Percent)
+    // SL op de bovenkant van de recente (lokale) range/structuur - het
+    // laatste pivot-high - met een percentage-fallback als dat er niet is
+    // of aan de verkeerde kant van entry ligt.
+    slPrice    = (not na(lastPivotHigh) and lastPivotHigh > entryPrice) ? lastPivotHigh : entryPrice * (1 + slFallbackPercent)
+    riskDist   = slPrice - entryPrice
+    tp1Price   = entryPrice - riskDist * tp1RMultiple
+    tp2Price   = entryPrice - riskDist * tp2RMultiple
+    tp3Price   = entryPrice - riskDist * tp3RMultiple
     strategy.cancel("APA Short")
     strategy.entry("APA Short", strategy.short, limit=entryPrice)
     strategy.exit("APA Short TP1", "APA Short", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
