@@ -1,7 +1,12 @@
 //@version=6
-strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1, initial_capital=10000, currency=currency.USD)
+strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1, initial_capital=10000, currency=currency.USD, margin_long=5, margin_short=5)
 // default_qty_* wordt hier nooit echt gebruikt - elke strategy.entry() krijgt
-// een expliciete qty= mee, berekend uit riskPercent (zie hieronder).
+// een expliciete qty= mee, berekend uit riskPercent (zie hieronder). Die
+// risk-based sizing (1% risico / max 0,25% SL) vraagt inherent ~4x hefboom
+// (soms meer, als een structureel pivot nog krapper is dan de 0,25%-cap) -
+// zonder margin_long/margin_short (die standaard op 100%, dus GEEN hefboom,
+// staan) weigert TradingView zo'n order stilzwijgend, wat tot 0 trades
+// leidde. 5% margin = tot 20x hefboom toegestaan, ruim voldoende speling.
 
 // Bijgewerkt om te matchen met de actuele live-regels in
 // docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md.

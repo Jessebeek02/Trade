@@ -32,9 +32,10 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   **Let op:** omdat de entry nu op de verste rand van de oksel ligt (ná
   de impuls én de reclaim-candles, die de prijs juist verder weg duwen),
   moet de prijs relatief diep terugzakken voordat de order gevuld wordt —
-  `maxBarsWaitFill` (standaard 400, was 80) geeft daar bewust ruimte
-  voor. Een te korte wachttijd gaf hier "0 trades" bij het testen: de
-  order verviel steeds voordat zo'n diepe terugval kans kreeg.
+  `maxBarsWaitFill` (standaard 400, was 80) geeft daar bewust ruimte voor.
+  (Een eerdere "0 trades"-bug bleek uiteindelijk niet hierdoor te komen,
+  zie de margin-uitleg hieronder — maar 400 is sowieso een realistischer
+  wachttijd voor een diepe retracement dan 80.)
 - **SL op structuur, begrensd op 0,25%**: de SL staat op het laatste
   pivot-punt (bovenkant lokale range voor short, onderkant voor long —
   zoals je zelf op de chart aanwees), met `slFallbackPercent` (standaard
@@ -71,6 +72,13 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   daadwerkelijke risico per trade ongelijk: een krappe SL riskeerde in
   R-termen onbedoeld meer dan een ruime SL, en de profit factor/R-cijfers
   van eerdere tests zijn dus niet 1-op-1 vergelijkbaar met deze versie.
+  **Belangrijk:** 1% risico bij een SL van max 0,25% vraagt wiskundig
+  altijd zo'n 4x hefboom (soms meer, bij een nog krapper structureel
+  pivot-punt) — TradingView's Strategy Tester staat standaard **geen**
+  hefboom toe (`margin_long`/`margin_short` = 100%), dus zonder die
+  instelling expliciet te verruimen worden zulke orders stilzwijgend
+  geweigerd (gaf hier ooit "0 trades"). Het script zet dit daarom op 5%
+  margin (tot 20x hefboom) in de `strategy(...)`-declaratie.
 - **Filters om minder, sterkere setups te krijgen** (dit wijkt af van de
   live-bot, die blokkeert bewust niets):
   - Impuls-drempel en volume-eis staan standaard op **2,0x** (i.p.v.
