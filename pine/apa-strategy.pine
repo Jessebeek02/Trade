@@ -4,14 +4,15 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 // Bijgewerkt om te matchen met de actuele live-regels in
 // docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md.
 // Bekende versimpelingen t.o.v. de live-bot:
-// - Volume Profile/POC en Supply/Demand-zones worden niet gebruikt (geen
-//   betrouwbare native Pine-toegang) - alleen HTF-trend, Range-positie en
-//   VWAP worden hier als (niet-blokkerende, puur getoonde) confirmaties
-//   geplot.
+// - Volume Profile/POC, VPSV en Supply/Demand-zones worden niet gebruikt
+//   (geen betrouwbare native Pine-toegang) - alleen HTF-trend, MTF-trend,
+//   Range-positie en VWAP worden hier als (niet-blokkerende, puur
+//   getoonde) confirmaties geplot.
 // - Standaard worden alleen oksels genomen met minstens `minConfirmations`
-//   confirmaties (van HTF-trend/Range-positie/VWAP) - zet dat op 0 om,
-//   net als de live-bot, ALLE gevonden oksels te nemen ongeacht
-//   confirmaties. Zo kun je in de Strategy Tester zelf vergelijken.
+//   confirmaties (van 4: HTF-trend/MTF-trend/Range-positie/VWAP) - zet
+//   dat op 0 om, net als de live-bot, ALLE gevonden oksels te nemen
+//   ongeacht confirmaties. Zo kun je in de Strategy Tester zelf
+//   vergelijken.
 // - Take-profit is een vaste R:R-multiple i.p.v. de eerstvolgende
 //   liquiditeitszone/swing-high/low.
 // - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
@@ -25,6 +26,8 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 // ── Inputs ──────────────────────────────────────────────────────────────
 htf             = input.timeframe("D", "HTF voor trendbepaling")
 htfEmaLen       = input.int(50, "HTF EMA-lengte (trendfilter)")
+mtf             = input.timeframe("15", "MTF voor tussenliggende confirmatie")
+mtfEmaLen       = input.int(50, "MTF EMA-lengte (trendfilter)")
 rangeLen        = input.int(100, "Range-lengte voor range-positie (bars op HTF)")
 impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
 impulseAtrMult  = input.float(1.8, "Impuls-drempel (x ATR)")
@@ -36,7 +39,7 @@ slPercent       = input.float(0.25, "SL-afstand vanaf entry (%)") / 100
 rrMultiple      = input.float(2.0, "Take-profit R:R-multiple")
 maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
-minConfirmations = input.int(2, "Min. aantal confirmaties (van 3: HTF/Range/VWAP) - 0 = alle oksels")
+minConfirmations = input.int(2, "Min. aantal confirmaties (van 4: HTF/MTF/Range/VWAP) - 0 = alle oksels")
 
 atr    = ta.atr(atrLen)
 volAvg = ta.sma(volume, volLen)
@@ -47,6 +50,12 @@ htfEma   = request.security(syminfo.tickerid, htf, ta.ema(close, htfEmaLen)[1], 
 htfUptrend   = htfClose > htfEma
 htfDowntrend = htfClose < htfEma
 
+// ── MTF-trend (15m) — confirmatie, blokkeert niets ──────────────────────
+mtfClose = request.security(syminfo.tickerid, mtf, close[1], lookahead=barmerge.lookahead_off)
+mtfEma   = request.security(syminfo.tickerid, mtf, ta.ema(close, mtfEmaLen)[1], lookahead=barmerge.lookahead_off)
+mtfUptrend   = mtfClose > mtfEma
+mtfDowntrend = mtfClose < mtfEma
+
 // ── Range-positie (Daily) — confirmatie, blokkeert niets ────────────────
 htfRangeHigh = request.security(syminfo.tickerid, htf, ta.highest(high, rangeLen)[1], lookahead=barmerge.lookahead_off)
 htfRangeLow  = request.security(syminfo.tickerid, htf, ta.lowest(low, rangeLen)[1], lookahead=barmerge.lookahead_off)
@@ -55,16 +64,18 @@ htfRangePos  = (close - htfRangeLow) / (htfRangeHigh - htfRangeLow)  // 0 = onde
 // ── VWAP — confirmatie, blokkeert niets ─────────────────────────────────
 vwapVal = ta.vwap(hlc3)
 
-// ── Confirmatie-telling per richting (HTF, Range-positie, VWAP) ────────
+// ── Confirmatie-telling per richting (HTF, MTF, Range-positie, VWAP) ───
 longHtfOk    = htfUptrend
+longMtfOk    = mtfUptrend
 longRangeOk  = htfRangePos < (1 - rangeExtreme)
 longVwapOk   = close < vwapVal
-longConfirmCount = (longHtfOk ? 1 : 0) + (longRangeOk ? 1 : 0) + (longVwapOk ? 1 : 0)
+longConfirmCount = (longHtfOk ? 1 : 0) + (longMtfOk ? 1 : 0) + (longRangeOk ? 1 : 0) + (longVwapOk ? 1 : 0)
 
 shortHtfOk   = htfDowntrend
+shortMtfOk   = mtfDowntrend
 shortRangeOk = htfRangePos > rangeExtreme
 shortVwapOk  = close > vwapVal
-shortConfirmCount = (shortHtfOk ? 1 : 0) + (shortRangeOk ? 1 : 0) + (shortVwapOk ? 1 : 0)
+shortConfirmCount = (shortHtfOk ? 1 : 0) + (shortMtfOk ? 1 : 0) + (shortRangeOk ? 1 : 0) + (shortVwapOk ? 1 : 0)
 
 // ── Impuls-detectie: overtuigend = ATR-drempel + duidelijk verhoogd volume ─
 priceChange       = close - close[impulseLookback]
