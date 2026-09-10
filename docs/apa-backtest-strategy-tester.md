@@ -21,14 +21,13 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   zodra een oksel + confirmaties kloppen, wordt er nog geen order
   geplaatst. Pas als de prijs `reclaimCandles` (standaard 3) candles op
   rij volledig — open én close — boven de oksel sluit (long) / onder de
-  oksel sluit (short), wordt er een limit order geplaatst. Die komt
-  **niet** terug op het oude oksel-niveau (dat gaf PF 0,701 — de prijs
-  komt na bevestiging vaak niet meer zo diep terug), maar op de laagste
-  low (long) / hoogste high (short) van díe reclaim-candles zelf: een
-  vers, dichterbij gelegen niveau. SL/TP worden pas ná bevestiging
-  berekend, op basis van dat nieuwe entry-niveau. Eén candle die niet aan
-  de eis voldoet annuleert de wachtende setup helemaal (geen nieuwe
-  poging totdat er een nieuw signaal komt).
+  oksel sluit (short), wordt er een limit order geplaatst. Dit is puur
+  een confirmatie-poort: de **entry-prijs blijft op het oksel-niveau**
+  zelf (bevroren op het moment van het signaal), verschuift niet mee met
+  de reclaim-candles. SL/TP worden wel pas ná bevestiging berekend, met
+  de op dat moment actuele pivot. Eén candle die niet aan de eis voldoet
+  annuleert de wachtende setup helemaal (geen nieuwe poging totdat er een
+  nieuw signaal komt).
 - **SL op structuur, niet op een vast percentage**: de SL staat op het
   laatste pivot-punt (bovenkant lokale range voor short, onderkant voor
   long — het "structurele" niveau, zoals je zelf op de chart aanwees),
