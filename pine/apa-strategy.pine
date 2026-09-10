@@ -18,10 +18,11 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //     bij de oksel, als benadering van een liquiditeits-/S&D-zone.
 // - Filters om minder maar sterkere setups te krijgen (afwijkt van de
 //   live-bot, die blokkeert niets): impuls-drempel en volume-eis staan
-//   hoger (2.5x i.p.v. 1.8x), HTF- en MTF-trend zijn nu een HARDE
-//   vereiste (moeten allebei kloppen, geen tegen-de-trend-trades meer),
-//   en van de overige 5 confirmaties (Range/VWAP/POC/VPSV/S&D) moeten er
-//   minstens `minConfirmations` (standaard 3) meekloppen.
+//   hoger (2.0x i.p.v. 1.8x - een 2.5x-versie bleek te streng, gaf maar
+//   3 trades in 3,5 week), HTF- en MTF-trend zijn nu een HARDE vereiste
+//   (moeten allebei kloppen, geen tegen-de-trend-trades meer), en van de
+//   overige 5 confirmaties (Range/VWAP/POC/VPSV/S&D) moeten er minstens
+//   `minConfirmations` (standaard 2) meekloppen.
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
@@ -48,10 +49,10 @@ mtf             = input.timeframe("15", "MTF voor tussenliggende confirmatie")
 mtfEmaLen       = input.int(50, "MTF EMA-lengte (trendfilter)")
 rangeLen        = input.int(100, "Range-lengte voor range-positie (bars op HTF)")
 impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
-impulseAtrMult  = input.float(2.5, "Impuls-drempel (x ATR) - hoger = minder maar overtuigender impulsen")
+impulseAtrMult  = input.float(2.0, "Impuls-drempel (x ATR) - hoger = minder maar overtuigender impulsen")
 atrLen          = input.int(14, "ATR-lengte")
 volLen          = input.int(20, "Volume-gemiddelde-lengte")
-volMult         = input.float(2.5, "Impuls vereist volume x dit gemiddelde - hoger = strenger")
+volMult         = input.float(2.0, "Impuls vereist volume x dit gemiddelde - hoger = strenger")
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
 slFallbackPercent = input.float(0.25, "SL-afstand vanaf entry (%) - fallback als er geen bruikbaar pivot-punt is") / 100
 tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand)")
@@ -66,7 +67,7 @@ pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
 pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
 pivotLen        = input.int(10, "Pivot-lengte voor Supply/Demand-benadering")
 pivotProxAtrMult = input.float(2.0, "Supply/Demand-nabijheid (x ATR)")
-minConfirmations = input.int(3, "Min. aantal van de 5 optionele confirmaties (Range/VWAP/POC/VPSV/S&D) - 0 = alleen HTF+MTF nodig")
+minConfirmations = input.int(2, "Min. aantal van de 5 optionele confirmaties (Range/VWAP/POC/VPSV/S&D) - 0 = alleen HTF+MTF nodig")
 
 atr    = ta.atr(atrLen)
 volAvg = ta.sma(volume, volLen)
