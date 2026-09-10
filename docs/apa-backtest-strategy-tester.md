@@ -26,12 +26,13 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   pivot-punt verder weg dan dat, dan wordt de SL afgekapt tot dat
   maximum.
 - **Take-profit schaalt mee met die SL-afstand**: twee niveaus, als
-  R-multiples van de (variabele) SL-afstand — standaard TP1 = 1,5x, TP2 =
-  3x, waarvan elk 50% van de positie sluit. Was eerst drie niveaus
+  R-multiples van de (variabele) SL-afstand — standaard TP1 = 1x, TP2 =
+  2,5x, waarvan elk 50% van de positie sluit. Was eerst drie niveaus
   (1x/2x/4x, 40/40/20%), maar met kleine targets en 3 losse exit-orders
   per trade woog de commissie (fee per fill op MEXC) te zwaar mee t.o.v.
-  de winst — vandaar terug naar twee, bredere niveaus: minder
-  fill-momenten en een grotere winst per trade relatief aan de vaste fee.
+  de winst — vandaar terug naar twee niveaus (minder fill-momenten). Een
+  bredere TP1 (1,5x) is ook getest maar verslechterde het resultaat
+  (lagere hit-rate vóórdat de SL raakt) — TP1 staat daarom weer op 1x.
   Alle vier waardes los instelbaar via de Inputs, in plaats van de
   eerstvolgende liquiditeitszone/swing-high/low uit de cursus. De twee
   TP's delen dezelfde SL: raakt de prijs de SL voordat (een deel van) de
@@ -50,10 +51,19 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
     concluderen. Ze zijn nu weer gewone, optionele confirmaties, net als
     de andere 5.
   - Alle **7** confirmaties (HTF, MTF, Range-positie, VWAP, POC, VPSV,
-    Supply/Demand) tellen mee: `minConfirmations` (standaard 4) bepaalt
-    hoeveel daarvan minstens moeten kloppen, ongeacht welke. **Let op:**
-    zet 'm niet op het maximum (7) — dan moeten alle zeven tegelijk
-    kloppen, wat zelden gebeurt.
+    Supply/Demand) tellen mee: `minConfirmations` (standaard 3) bepaalt
+    hoeveel daarvan minstens moeten kloppen, ongeacht welke. 4 is ook
+    getest, maar gaf minder trades zonder betere kwaliteit — teruggezet
+    naar 3. **Let op:** zet 'm niet op het maximum (7) — dan moeten alle
+    zeven tegelijk kloppen, wat zelden gebeurt.
+  - **Let op bij het interpreteren van resultaten:** met de huidige
+    testperiode (3,5 week) en het lage aantal trades per variant
+    (100-250) zijn verschillen van bijv. profit factor 1,1 vs 1,5 tussen
+    twee parametersets niet per se een echt signaal — dat kan net zo goed
+    ruis zijn. Neem kleine PF/winrate-verschillen tussen tests met een
+    korrel zout; alleen grote, herhaalde patronen (zoals de aanhoudende
+    long/short-asymmetrie) zijn vooralsnog betrouwbaar genoeg om op te
+    sturen.
 - Slechts één actieve pending oksel per richting tegelijk — de live-bot
   kan meerdere tegelijk bijhouden, dit script (nog) niet.
 

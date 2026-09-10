@@ -22,8 +22,9 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   3 trades in 3,5 week). HTF+MTF waren kort een HARDE vereiste (moesten
 //   allebei kloppen), maar dat gaf te weinig trades (6) om iets over te
 //   zeggen - nu weer een gewone, optionele confirmatie samen met de
-//   andere 5, van de 7 moeten er minstens `minConfirmations` (standaard 4)
-//   meekloppen.
+//   andere 5, van de 7 moeten er minstens `minConfirmations` (standaard 3)
+//   meekloppen (4 werd getest, gaf géén betere kwaliteit, alleen minder
+//   trades - teruggezet).
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
@@ -31,15 +32,17 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   op maximaal `maxSlPercent` (standaard 1,0%) - ligt het pivot-punt
 //   verder weg, dan wordt de SL afgekapt tot dat maximum.
 // - Take-profit schaalt in twee niveaus mee met die (variabele)
-//   SL-afstand, als R-multiples (standaard 1,5R/3R, elk instelbaar), i.p.v.
+//   SL-afstand, als R-multiples (standaard 1R/2,5R, elk instelbaar), i.p.v.
 //   een vast percentage of de eerstvolgende liquiditeitszone/swing-high/low
 //   uit de cursus. Standaardverdeling: 50% op TP1, 50% op TP2. Was eerst
 //   drie niveaus (1R/2R/4R, 40/40/20%), maar met kleine targets en 3 losse
 //   exit-orders per trade woog de commissie (MEXC-fees per fill) te zwaar
-//   mee - vandaar terug naar twee, bredere niveaus: minder fill-momenten en
-//   een grotere winst per trade relatief aan de vaste fee. Zodra TP1 raakt,
-//   schuift de SL van het resterende deel (TP2) naar de entry-prijs
-//   (breakeven) - die trade kan dan geen verlies meer worden.
+//   mee - vandaar terug naar twee niveaus. Een bredere TP1 (1,5R) werd ook
+//   getest maar verslechterde het resultaat (waarschijnlijk lagere
+//   hit-rate op TP1 vóór de SL geraakt wordt) - TP1 staat daarom weer op
+//   1R, alleen het aantal exit-orders (2 i.p.v. 3) is teruggebracht. Zodra
+//   TP1 raakt, schuift de SL van het resterende deel (TP2) naar de
+//   entry-prijs (breakeven) - die trade kan dan geen verlies meer worden.
 // - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
 //   vervangt de oude) - de live-bot kan meerdere oksels tegelijk
 //   bijhouden, dit script niet.
@@ -78,9 +81,9 @@ volMult         = input.float(2.0, "Impuls vereist volume x dit gemiddelde - hog
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
 slFallbackPercent = input.float(0.25, "SL-afstand vanaf entry (%) - fallback als er geen bruikbaar pivot-punt is") / 100
 maxSlPercent    = input.float(1.0, "Maximum SL-afstand vanaf entry (%) - kapt de structurele SL af als het pivot-punt te ver weg ligt") / 100
-tp1RMultiple    = input.float(1.5, "TP1 (x SL-afstand)")
+tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand)")
 tp1Portion      = input.float(50, "TP1: % van positie sluiten")
-tp2RMultiple    = input.float(3.0, "TP2 (x SL-afstand)")
+tp2RMultiple    = input.float(2.5, "TP2 (x SL-afstand)")
 tp2Portion      = input.float(50, "TP2: % van positie sluiten")
 maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
@@ -88,7 +91,7 @@ pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
 pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
 pivotLen        = input.int(10, "Pivot-lengte voor Supply/Demand-benadering")
 pivotProxAtrMult = input.float(2.0, "Supply/Demand-nabijheid (x ATR)")
-minConfirmations = input.int(4, "Min. aantal van de 7 confirmaties (HTF/MTF/Range/VWAP/POC/VPSV/S&D) - zet niet op het maximum (7)")
+minConfirmations = input.int(3, "Min. aantal van de 7 confirmaties (HTF/MTF/Range/VWAP/POC/VPSV/S&D) - zet niet op het maximum (7)")
 
 // ── Automatische HTF/MTF op basis van de chart-timeframe (LTF) ──────────
 f_autoMtf() =>
