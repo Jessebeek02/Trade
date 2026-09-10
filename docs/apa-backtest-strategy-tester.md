@@ -8,15 +8,23 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
 
 ## Bekende versimpelingen (belangrijk!)
 
-- **Geen Volume Profile / POC** — niet native uit te lezen in Pine.
-- **Geen supply/demand- of liquiditeitszones** — zou custom zone-detectie
-  vereisen; nu niet meegenomen.
+- **Geen Volume Profile / POC en geen Supply/Demand-zones** — niet
+  betrouwbaar native uit te lezen in Pine. Alleen HTF-trend,
+  Range-positie en VWAP zijn hier beschikbaar als confirmaties.
 - **Take-profit = vaste R:R-multiple** (instelbaar, standaard 2R) in
   plaats van de eerstvolgende liquiditeitszone/swing-high/low uit de
   cursus.
-- Impuls-detectie is een ATR-gebaseerde drempel (instelbaar), geen exacte
-  cursus-definitie — die was nooit hard bevestigd (zie
-  `docs/apa-signal-strategy.md`).
+- Impuls-detectie is een ATR-gebaseerde drempel + volume-eis
+  (instelbaar), geen exacte cursus-definitie — die was nooit hard
+  bevestigd (zie `docs/apa-signal-strategy.md`).
+- **`minConfirmations`-filter**: standaard worden alleen oksels genomen
+  met minstens dit aantal confirmaties (van de 3 beschikbare: HTF,
+  Range-positie, VWAP). Zet 'm op 0 om — net als de live-bot — alle
+  gevonden oksels te nemen ongeacht confirmaties. Vergelijk beide
+  instellingen in de Strategy Tester om te zien of filteren op
+  confirmaties het verschil maakt.
+- Slechts één actieve pending oksel per richting tegelijk — de live-bot
+  kan meerdere tegelijk bijhouden, dit script (nog) niet.
 
 Dit is dus een **eerste testbare benadering**, geen 1-op-1 kopie van de
 cursus. De uitkomst gebruiken we om de regels (en deze script-parameters)

@@ -1,115 +1,121 @@
 //@version=6
 strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, initial_capital=10000, currency=currency.USD)
 
-// LET OP: dit script is niet meer synchroon met de actuele live-regels in
-// docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md. Sindsdien
-// gewijzigd: (1) de oksel/void is nu een SMAL gebied bij de oorsprong van
-// de impuls, niet de volle impuls-afstand zoals hier nog berekend wordt;
-// (2) entry gebeurt direct bij het ontstaan van de oksel (limit order),
-// niet pas na een retest zoals dit script nog doet; (3) SL is 0,25% vanaf
-// entry i.p.v. een ATR-buffer; (4) er is een Range-positie-confirmatie
-// bijgekomen. Vraag om dit script te laten resyncen voor je 'm weer voor
-// een backtest gebruikt.
-//
-// Vereenvoudigde, testbare vertaling van docs/apa-signal-strategy.md.
-// Bekende versimpelingen t.o.v. de cursus (zie disclaimer in dat bestand):
-// - Volume Profile / POC worden niet gebruikt (geen native Pine-toegang).
-// - Supply/demand- en liquiditeitszones worden niet gebruikt.
+// Bijgewerkt om te matchen met de actuele live-regels in
+// docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md.
+// Bekende versimpelingen t.o.v. de live-bot:
+// - Volume Profile/POC en Supply/Demand-zones worden niet gebruikt (geen
+//   betrouwbare native Pine-toegang) - alleen HTF-trend, Range-positie en
+//   VWAP worden hier als (niet-blokkerende, puur getoonde) confirmaties
+//   geplot.
+// - Standaard worden alleen oksels genomen met minstens `minConfirmations`
+//   confirmaties (van HTF-trend/Range-positie/VWAP) - zet dat op 0 om,
+//   net als de live-bot, ALLE gevonden oksels te nemen ongeacht
+//   confirmaties. Zo kun je in de Strategy Tester zelf vergelijken.
 // - Take-profit is een vaste R:R-multiple i.p.v. de eerstvolgende
 //   liquiditeitszone/swing-high/low.
-// Doel: een eerste, narekenbare versie om tegen echte MEXC-historie in de
-// Strategy Tester te draaien en daarna samen te verfijnen.
+// - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
+//   vervangt de oude) - de live-bot kan meerdere oksels tegelijk
+//   bijhouden, dit script niet.
 //
-// Toepassen op de **3m-chart** (LTF, waar entry/SL/TP op bepaald worden).
-// HTF (Daily) en MTF (15m) worden intern via request.security opgehaald
-// als confirmatielagen — daar hoef je de chart niet voor te wisselen.
+// Toepassen op de **3m-chart** (LTF). HTF (Daily) wordt intern via
+// request.security opgehaald - daar hoef je de chart niet voor te
+// wisselen.
 
 // ── Inputs ──────────────────────────────────────────────────────────────
-htf            = input.timeframe("D", "HTF voor trendbepaling")
-htfEmaLen      = input.int(50, "HTF EMA-lengte (trendfilter)")
-mtf            = input.timeframe("15", "MTF voor tussenliggende confirmatie")
-mtfEmaLen      = input.int(50, "MTF EMA-lengte (trendfilter)")
-impulseLookback = input.int(3, "Aantal bars voor impuls-detectie (op LTF)")
-impulseAtrMult = input.float(1.8, "Impuls-drempel (x ATR)")
-atrLen         = input.int(14, "ATR-lengte")
-slBufferAtrMult = input.float(0.25, "SL-buffer (x ATR) voorbij de void")
-rrMultiple     = input.float(2.0, "Take-profit R:R-multiple")
-maxBarsWaitRetest = input.int(40, "Max bars wachten op retest na impuls")
+htf             = input.timeframe("D", "HTF voor trendbepaling")
+htfEmaLen       = input.int(50, "HTF EMA-lengte (trendfilter)")
+rangeLen        = input.int(100, "Range-lengte voor range-positie (bars op HTF)")
+impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
+impulseAtrMult  = input.float(1.8, "Impuls-drempel (x ATR)")
+atrLen          = input.int(14, "ATR-lengte")
+volLen          = input.int(20, "Volume-gemiddelde-lengte")
+volMult         = input.float(1.8, "Impuls vereist volume x dit gemiddelde (overtuigend)")
+baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
+slPercent       = input.float(0.25, "SL-afstand vanaf entry (%)") / 100
+rrMultiple      = input.float(2.0, "Take-profit R:R-multiple")
+maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
+rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
+minConfirmations = input.int(2, "Min. aantal confirmaties (van 3: HTF/Range/VWAP) - 0 = alle oksels")
 
-atr = ta.atr(atrLen)
+atr    = ta.atr(atrLen)
+volAvg = ta.sma(volume, volLen)
 
-// ── HTF-trend (Daily) — macro-richting ──────────────────────────────────
+// ── HTF-trend (Daily) — confirmatie, blokkeert niets ────────────────────
 htfClose = request.security(syminfo.tickerid, htf, close[1], lookahead=barmerge.lookahead_off)
 htfEma   = request.security(syminfo.tickerid, htf, ta.ema(close, htfEmaLen)[1], lookahead=barmerge.lookahead_off)
 htfUptrend   = htfClose > htfEma
 htfDowntrend = htfClose < htfEma
 
-// ── MTF-trend (15m) — tussenliggende confirmatie ────────────────────────
-mtfClose = request.security(syminfo.tickerid, mtf, close[1], lookahead=barmerge.lookahead_off)
-mtfEma   = request.security(syminfo.tickerid, mtf, ta.ema(close, mtfEmaLen)[1], lookahead=barmerge.lookahead_off)
-mtfUptrend   = mtfClose > mtfEma
-mtfDowntrend = mtfClose < mtfEma
+// ── Range-positie (Daily) — confirmatie, blokkeert niets ────────────────
+htfRangeHigh = request.security(syminfo.tickerid, htf, ta.highest(high, rangeLen)[1], lookahead=barmerge.lookahead_off)
+htfRangeLow  = request.security(syminfo.tickerid, htf, ta.lowest(low, rangeLen)[1], lookahead=barmerge.lookahead_off)
+htfRangePos  = (close - htfRangeLow) / (htfRangeHigh - htfRangeLow)  // 0 = onderkant, 1 = bovenkant
 
-// ── VWAP-confirmatie ──────────────────────────────────────────────────
+// ── VWAP — confirmatie, blokkeert niets ─────────────────────────────────
 vwapVal = ta.vwap(hlc3)
 
-// ── Impuls-detectie: netto beweging over impulseLookback bars > drempel ─
-priceChange = close - close[impulseLookback]
-impulseThreshold = atr * impulseAtrMult
-isImpulseUp   = priceChange > impulseThreshold
-isImpulseDown = priceChange < -impulseThreshold
+// ── Confirmatie-telling per richting (HTF, Range-positie, VWAP) ────────
+longHtfOk    = htfUptrend
+longRangeOk  = htfRangePos < (1 - rangeExtreme)
+longVwapOk   = close < vwapVal
+longConfirmCount = (longHtfOk ? 1 : 0) + (longRangeOk ? 1 : 0) + (longVwapOk ? 1 : 0)
 
-// ── Void/backtest-zone bijhouden ─────────────────────────────────────
-var float voidHigh = na
-var float voidLow = na
-var int   voidDir = 0        // 1 = mark-up (long later), -1 = mark-down (short later)
-var int   impulseBarIndex = na
-var bool  waitingForRetest = false
+shortHtfOk   = htfDowntrend
+shortRangeOk = htfRangePos > rangeExtreme
+shortVwapOk  = close > vwapVal
+shortConfirmCount = (shortHtfOk ? 1 : 0) + (shortRangeOk ? 1 : 0) + (shortVwapOk ? 1 : 0)
 
-if isImpulseUp and not waitingForRetest
-    voidLow := low[impulseLookback]
-    voidHigh := high
-    voidDir := 1
-    impulseBarIndex := bar_index
-    waitingForRetest := true
+// ── Impuls-detectie: overtuigend = ATR-drempel + duidelijk verhoogd volume ─
+priceChange       = close - close[impulseLookback]
+impulseThreshold  = atr * impulseAtrMult
+convincingVolume  = volume > volAvg * volMult
+isImpulseUp   = priceChange > impulseThreshold  and convincingVolume
+isImpulseDown = priceChange < -impulseThreshold and convincingVolume
 
-if isImpulseDown and not waitingForRetest
-    voidHigh := high[impulseLookback]
-    voidLow := low
-    voidDir := -1
-    impulseBarIndex := bar_index
-    waitingForRetest := true
+// ── Oksel = smal basisgebied bij de OORSPRONG van de impuls ─────────────
+// (niet de volledige impuls-afstand - de laatste baseBars candles vlak
+// vóór het begin van de beweging)
+originHigh = ta.highest(high, baseBars)[impulseLookback]
+originLow  = ta.lowest(low, baseBars)[impulseLookback]
 
-if waitingForRetest and (bar_index - impulseBarIndex > maxBarsWaitRetest)
-    waitingForRetest := false
-    voidDir := 0
+var int lastLongSignalBar  = na
+var int lastShortSignalBar = na
 
-// ── Retest = entry-signaal ───────────────────────────────────────────
-retestLong  = waitingForRetest and voidDir == 1  and low  <= voidHigh and close > voidLow
-retestShort = waitingForRetest and voidDir == -1 and high >= voidLow  and close < voidHigh
-
-longConfirmed  = retestLong  and close > vwapVal and htfUptrend   and mtfUptrend
-shortConfirmed = retestShort and close < vwapVal and htfDowntrend and mtfDowntrend
-
-// ── Entries + SL/TP ───────────────────────────────────────────────────
-if longConfirmed and strategy.position_size == 0
-    slPrice = voidLow - atr * slBufferAtrMult
-    riskPerUnit = close - slPrice
-    tpPrice = close + riskPerUnit * rrMultiple
-    strategy.entry("APA Long", strategy.long)
+// ── Entry: direct als limit order zodra de oksel ontstaat ───────────────
+// Entry = de rand van de oksel het dichtst bij de huidige prijs (het
+// eerste punt dat geraakt wordt bij een terugval naar de zone).
+if isImpulseUp and longConfirmCount >= minConfirmations
+    entryPrice = originHigh
+    slPrice    = entryPrice * (1 - slPercent)
+    riskAmt    = entryPrice - slPrice
+    tpPrice    = entryPrice + riskAmt * rrMultiple
+    strategy.cancel("APA Long")
+    strategy.entry("APA Long", strategy.long, limit=entryPrice)
     strategy.exit("APA Long Exit", "APA Long", stop=slPrice, limit=tpPrice)
-    waitingForRetest := false
-    voidDir := 0
+    lastLongSignalBar := bar_index
 
-if shortConfirmed and strategy.position_size == 0
-    slPrice = voidHigh + atr * slBufferAtrMult
-    riskPerUnit = slPrice - close
-    tpPrice = close - riskPerUnit * rrMultiple
-    strategy.entry("APA Short", strategy.short)
+if isImpulseDown and shortConfirmCount >= minConfirmations
+    entryPrice = originLow
+    slPrice    = entryPrice * (1 + slPercent)
+    riskAmt    = slPrice - entryPrice
+    tpPrice    = entryPrice - riskAmt * rrMultiple
+    strategy.cancel("APA Short")
+    strategy.entry("APA Short", strategy.short, limit=entryPrice)
     strategy.exit("APA Short Exit", "APA Short", stop=slPrice, limit=tpPrice)
-    waitingForRetest := false
-    voidDir := 0
+    lastShortSignalBar := bar_index
+
+// ── Niet-gevulde limit orders laten vervallen na te lang wachten ────────
+if not na(lastLongSignalBar) and (bar_index - lastLongSignalBar > maxBarsWaitFill)
+    strategy.cancel("APA Long")
+    lastLongSignalBar := na
+
+if not na(lastShortSignalBar) and (bar_index - lastShortSignalBar > maxBarsWaitFill)
+    strategy.cancel("APA Short")
+    lastShortSignalBar := na
 
 // ── Visuals ───────────────────────────────────────────────────────────
 plot(vwapVal, "VWAP", color=color.orange)
-bgcolor(waitingForRetest ? (voidDir == 1 ? color.new(color.green, 90) : color.new(color.red, 90)) : na)
+plot(originHigh, "Oksel-boven (laatste)", color=color.aqua, style=plot.style_circles, linewidth=2)
+plot(originLow, "Oksel-onder (laatste)", color=color.fuchsia, style=plot.style_circles, linewidth=2)
+bgcolor(htfUptrend ? color.new(color.green, 95) : htfDowntrend ? color.new(color.red, 95) : na)
