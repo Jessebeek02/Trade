@@ -25,15 +25,19 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   maar is begrensd op maximaal `maxSlPercent` (standaard 1,0%) — ligt het
   pivot-punt verder weg dan dat, dan wordt de SL afgekapt tot dat
   maximum.
-- **Take-profit schaalt mee met die SL-afstand**: drie niveaus, als
-  R-multiples van de (variabele) SL-afstand — standaard TP1 = 1x, TP2 =
-  2x, TP3 = 4x, waarvan resp. 40%/40%/20% van de positie sluit. Alle zes
-  waardes los instelbaar via de Inputs, in plaats van de eerstvolgende
-  liquiditeitszone/swing-high/low uit de cursus. De drie TP's delen
-  dezelfde SL: raakt de prijs de SL voordat (een deel van) de TP's
-  geraakt zijn, sluit het resterende deel van de positie daar.
+- **Take-profit schaalt mee met die SL-afstand**: twee niveaus, als
+  R-multiples van de (variabele) SL-afstand — standaard TP1 = 1,5x, TP2 =
+  3x, waarvan elk 50% van de positie sluit. Was eerst drie niveaus
+  (1x/2x/4x, 40/40/20%), maar met kleine targets en 3 losse exit-orders
+  per trade woog de commissie (fee per fill op MEXC) te zwaar mee t.o.v.
+  de winst — vandaar terug naar twee, bredere niveaus: minder
+  fill-momenten en een grotere winst per trade relatief aan de vaste fee.
+  Alle vier waardes los instelbaar via de Inputs, in plaats van de
+  eerstvolgende liquiditeitszone/swing-high/low uit de cursus. De twee
+  TP's delen dezelfde SL: raakt de prijs de SL voordat (een deel van) de
+  TP's geraakt zijn, sluit het resterende deel van de positie daar.
 - **Breakeven na TP1**: zodra TP1 geraakt is, schuift de SL van het
-  resterende deel (TP2+TP3) naar de entry-prijs — die trade kan vanaf dan
+  resterende deel (TP2) naar de entry-prijs — die trade kan vanaf dan
   geen verlies meer worden, hooguit quitte spelen als de rest ook op
   entry sluit.
 - **Filters om minder, sterkere setups te krijgen** (dit wijkt af van de
@@ -46,7 +50,7 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
     concluderen. Ze zijn nu weer gewone, optionele confirmaties, net als
     de andere 5.
   - Alle **7** confirmaties (HTF, MTF, Range-positie, VWAP, POC, VPSV,
-    Supply/Demand) tellen mee: `minConfirmations` (standaard 3) bepaalt
+    Supply/Demand) tellen mee: `minConfirmations` (standaard 4) bepaalt
     hoeveel daarvan minstens moeten kloppen, ongeacht welke. **Let op:**
     zet 'm niet op het maximum (7) — dan moeten alle zeven tegelijk
     kloppen, wat zelden gebeurt.
