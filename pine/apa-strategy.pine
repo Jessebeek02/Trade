@@ -41,14 +41,30 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   vervangt de oude) - de live-bot kan meerdere oksels tegelijk
 //   bijhouden, dit script niet.
 //
-// Toepassen op de **3m-chart** (LTF). HTF (Daily) wordt intern via
-// request.security opgehaald - daar hoef je de chart niet voor te
-// wisselen.
+// Toepassen op de **3m-chart** (LTF) voor de "echte" APA-setup - HTF/MTF
+// worden dan automatisch Daily/15m via request.security, daar hoef je de
+// chart niet voor te wisselen. HTF/MTF-inputs staan standaard op "Chart"
+// (leeg) = automatisch passend bij de chart-timeframe, dus je kunt dit
+// script ook direct op **15m of 1h** draaien (bijv. om met meer
+// kalender-historie te testen dan de gratis 3m-databudget toelaat, of om
+// long/short apart te vergelijken over bull- én bear-periodes) - MTF/HTF
+// schalen dan automatisch mee (15m→MTF 1h/HTF D, 1h→MTF 4h/HTF D). Let
+// op: de andere "bars"-instellingen (impuls-lookback, baseBars, ATR/
+// volume-lengte, pocLookback, pivotLen, maxBarsWaitFill) blijven native
+// chart-bars - hun betekenis in kalendertijd verandert dus mee met de
+// gekozen chart-timeframe, dit is dan ook een grovere benadering dan de
+// 3m-run.
 
 // ── Inputs ──────────────────────────────────────────────────────────────
-htf             = input.timeframe("D", "HTF voor trendbepaling")
+// HTF/MTF staan standaard op "Chart" (leeg) = automatisch bepaald op basis
+// van de timeframe die je op de chart hebt staan, zodat je dit script ook
+// op 15m of 1h kunt draaien (bijv. om long/short apart te checken over een
+// langere kalenderperiode dan de 3m-chart gratis toelaat) zonder telkens
+// zelf HTF/MTF opnieuw te hoeven instellen. Kies je hier zelf een vaste
+// timeframe, dan overschrijft die de automatische keuze.
+htfInput        = input.timeframe("", "HTF voor trendbepaling (leeg = automatisch)")
 htfEmaLen       = input.int(50, "HTF EMA-lengte (trendfilter)")
-mtf             = input.timeframe("15", "MTF voor tussenliggende confirmatie")
+mtfInput        = input.timeframe("", "MTF voor tussenliggende confirmatie (leeg = automatisch)")
 mtfEmaLen       = input.int(50, "MTF EMA-lengte (trendfilter)")
 rangeLen        = input.int(100, "Range-lengte voor range-positie (bars op HTF)")
 impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
@@ -72,6 +88,28 @@ pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
 pivotLen        = input.int(10, "Pivot-lengte voor Supply/Demand-benadering")
 pivotProxAtrMult = input.float(2.0, "Supply/Demand-nabijheid (x ATR)")
 minConfirmations = input.int(3, "Min. aantal van de 7 confirmaties (HTF/MTF/Range/VWAP/POC/VPSV/S&D) - zet niet op het maximum (7)")
+
+// ── Automatische HTF/MTF op basis van de chart-timeframe (LTF) ──────────
+f_autoMtf() =>
+    string result = switch timeframe.period
+        "3"   => "15"
+        "15"  => "60"
+        "60"  => "240"
+        "240" => "D"
+        => "60"
+    result
+
+f_autoHtf() =>
+    string result = switch timeframe.period
+        "3"   => "D"
+        "15"  => "D"
+        "60"  => "D"
+        "240" => "W"
+        => "D"
+    result
+
+htf = htfInput == "" ? f_autoHtf() : htfInput
+mtf = mtfInput == "" ? f_autoMtf() : mtfInput
 
 atr    = ta.atr(atrLen)
 volAvg = ta.sma(volume, volLen)

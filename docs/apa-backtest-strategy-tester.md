@@ -62,6 +62,31 @@ samen te verfijnen.
 1. Open TradingView Desktop, je MEXC BTC/USDT-symbool, timeframe **3m**
    (dit is de LTF waar de strategie op draait — HTF/Daily en MTF/15m
    worden intern opgehaald, daar hoef je de chart niet voor te wisselen).
+
+### Testen op 15m of 1h (bijv. voor meer kalenderhistorie zonder betaald plan)
+
+De HTF/MTF-inputs staan standaard op **"Chart"** (leeg) = automatisch
+passend bij de timeframe die je op de chart hebt staan. Je kunt dit
+script dus ook direct op de **15m**- of **1h**-chart draaien, zonder verder
+iets in te stellen:
+
+| Chart-timeframe (LTF) | MTF (automatisch) | HTF (automatisch) |
+| --- | --- | --- |
+| 3m  | 15m | Daily |
+| 15m | 1h  | Daily |
+| 1h  | 4h  | Daily |
+| 4h  | Daily | Weekly |
+
+Handig omdat TradingView's gratis plan op hogere timeframes meestal wél
+meer kalenderhistorie teruggeeft dan op 3m — zo kun je met een gratis
+account toch een periode testen die zowel een bull- als een bear-fase
+bevat, om te checken of long en short allebei werken en niet toevallig
+scheef staan door een eenzijdige testperiode. Let op: het is dan geen
+1-op-1 test van de "echte" 3m-setup — de overige bar-gebaseerde instellingen
+(impuls-lookback, oksel-basis, ATR/volume-lengte, POC/pivot-lookback,
+max-wacht-bars) blijven native chart-bars en betekenen dus een langere
+kalenderperiode per bar op 1h dan op 3m. Zie het als een groffere,
+aanvullende robuustheidscheck, niet als vervanging van de 3m-run.
 2. Open de **Pine Editor** (tabblad onderaan het scherm).
 3. Nieuw script → plak de inhoud van `pine/apa-strategy.pine`.
 4. Klik **"Add to chart"** — de strategie draait nu automatisch terug
