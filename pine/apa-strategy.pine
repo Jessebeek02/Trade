@@ -4,15 +4,22 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 // Bijgewerkt om te matchen met de actuele live-regels in
 // docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md.
 // Bekende versimpelingen t.o.v. de live-bot:
-// - Volume Profile/POC, VPSV en Supply/Demand-zones worden niet gebruikt
-//   (geen betrouwbare native Pine-toegang) - alleen HTF-trend, MTF-trend,
-//   Range-positie en VWAP worden hier als (niet-blokkerende, puur
-//   getoonde) confirmaties geplot.
+// - Alle 7 confirmaties zitten erin, maar Volume Profile/POC, VPSV en
+//   Supply/Demand zijn hier NATIVE PINE-BENADERINGEN, geen uitlezing van
+//   de LuxAlgo-indicatoren die de live-bot gebruikt (dat kan een
+//   strategy-script niet):
+//   - Volume Profile/POC: een eigen, grof geprijsde volume-profielberekening
+//     over `pocLookback` bars (prijs in `pocBins` bakjes, meeste volume =
+//     POC) - confirm als de POC buiten de oksel-zone valt.
+//   - VPSV: cumulatief sessievolume-delta (op-candles tellen mee als plus,
+//     neer-candles als min) sinds sessiestart - confirm als dat de
+//     richting bevestigt.
+//   - Supply/Demand: nabijheid van een recent pivot-high/low (swing-punt)
+//     bij de oksel, als benadering van een liquiditeits-/S&D-zone.
 // - Standaard worden alleen oksels genomen met minstens `minConfirmations`
-//   confirmaties (van 4: HTF-trend/MTF-trend/Range-positie/VWAP) - zet
-//   dat op 0 om, net als de live-bot, ALLE gevonden oksels te nemen
-//   ongeacht confirmaties. Zo kun je in de Strategy Tester zelf
-//   vergelijken.
+//   confirmaties (van 7) - zet dat op 0 om, net als de live-bot, ALLE
+//   gevonden oksels te nemen ongeacht confirmaties. Zo kun je in de
+//   Strategy Tester zelf vergelijken.
 // - Take-profit is een vaste R:R-multiple i.p.v. de eerstvolgende
 //   liquiditeitszone/swing-high/low.
 // - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
@@ -39,7 +46,11 @@ slPercent       = input.float(0.25, "SL-afstand vanaf entry (%)") / 100
 rrMultiple      = input.float(2.0, "Take-profit R:R-multiple")
 maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
-minConfirmations = input.int(2, "Min. aantal confirmaties (van 4: HTF/MTF/Range/VWAP) - 0 = alle oksels")
+pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
+pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
+pivotLen        = input.int(10, "Pivot-lengte voor Supply/Demand-benadering")
+pivotProxAtrMult = input.float(2.0, "Supply/Demand-nabijheid (x ATR)")
+minConfirmations = input.int(4, "Min. aantal confirmaties (van 7) - 0 = alle oksels")
 
 atr    = ta.atr(atrLen)
 volAvg = ta.sma(volume, volLen)
@@ -64,19 +75,6 @@ htfRangePos  = (close - htfRangeLow) / (htfRangeHigh - htfRangeLow)  // 0 = onde
 // ── VWAP — confirmatie, blokkeert niets ─────────────────────────────────
 vwapVal = ta.vwap(hlc3)
 
-// ── Confirmatie-telling per richting (HTF, MTF, Range-positie, VWAP) ───
-longHtfOk    = htfUptrend
-longMtfOk    = mtfUptrend
-longRangeOk  = htfRangePos < (1 - rangeExtreme)
-longVwapOk   = close < vwapVal
-longConfirmCount = (longHtfOk ? 1 : 0) + (longMtfOk ? 1 : 0) + (longRangeOk ? 1 : 0) + (longVwapOk ? 1 : 0)
-
-shortHtfOk   = htfDowntrend
-shortMtfOk   = mtfDowntrend
-shortRangeOk = htfRangePos > rangeExtreme
-shortVwapOk  = close > vwapVal
-shortConfirmCount = (shortHtfOk ? 1 : 0) + (shortMtfOk ? 1 : 0) + (shortRangeOk ? 1 : 0) + (shortVwapOk ? 1 : 0)
-
 // ── Impuls-detectie: overtuigend = ATR-drempel + duidelijk verhoogd volume ─
 priceChange       = close - close[impulseLookback]
 impulseThreshold  = atr * impulseAtrMult
@@ -89,6 +87,62 @@ isImpulseDown = priceChange < -impulseThreshold and convincingVolume
 // vóór het begin van de beweging)
 originHigh = ta.highest(high, baseBars)[impulseLookback]
 originLow  = ta.lowest(low, baseBars)[impulseLookback]
+
+// ── Volume Profile/POC-benadering — confirmatie, blokkeert niets ────────
+// Grof geprijsde volume-profiel over pocLookback bars: prijsrange verdeeld
+// in pocBins bakjes, per bakje het volume opgeteld, bakje met meeste
+// volume = POC. Confirm = POC valt buiten de oksel-zone (net als de
+// live-regel: POC niet middenin de void).
+var float[] pocBinVolumes = array.new_float(0)
+pocPrice = 0.0
+if barstate.isconfirmed
+    float rHigh = ta.highest(high, pocLookback)
+    float rLow  = ta.lowest(low, pocLookback)
+    float binSize = (rHigh - rLow) / pocBins
+    if binSize > 0
+        array.clear(pocBinVolumes)
+        for i = 0 to pocBins - 1
+            array.push(pocBinVolumes, 0.0)
+        for i = 0 to pocLookback - 1
+            float mid = (high[i] + low[i]) / 2
+            int binIdx = int(math.min(math.max((mid - rLow) / binSize, 0), pocBins - 1))
+            array.set(pocBinVolumes, binIdx, array.get(pocBinVolumes, binIdx) + volume[i])
+        int maxBinIdx = array.indexof(pocBinVolumes, array.max(pocBinVolumes))
+        pocPrice := rLow + (maxBinIdx + 0.5) * binSize
+
+// ── VPSV-benadering — cumulatief sessievolume-delta — blokkeert niets ───
+newSession = ta.change(time("D")) != 0
+var float sessionVolDelta = 0.0
+sessionVolDelta := newSession ? (close > open ? volume : -volume) : sessionVolDelta + (close > open ? volume : -volume)
+
+// ── Supply/Demand-benadering — nabijheid recent pivot-punt — blokkeert niets ─
+pivotHighVal = ta.pivothigh(high, pivotLen, pivotLen)
+pivotLowVal  = ta.pivotlow(low, pivotLen, pivotLen)
+var float lastPivotHigh = na
+var float lastPivotLow  = na
+if not na(pivotHighVal)
+    lastPivotHigh := pivotHighVal
+if not na(pivotLowVal)
+    lastPivotLow := pivotLowVal
+
+// ── Confirmatie-telling per richting (7 confirmaties) ───────────────────
+longHtfOk    = htfUptrend
+longMtfOk    = mtfUptrend
+longRangeOk  = htfRangePos < (1 - rangeExtreme)
+longVwapOk   = close < vwapVal
+longPocOk    = pocPrice < originLow or pocPrice > originHigh
+longVpsvOk   = sessionVolDelta > 0
+longSdOk     = not na(lastPivotLow) and math.abs(originLow - lastPivotLow) < atr * pivotProxAtrMult
+longConfirmCount = (longHtfOk ? 1 : 0) + (longMtfOk ? 1 : 0) + (longRangeOk ? 1 : 0) + (longVwapOk ? 1 : 0) + (longPocOk ? 1 : 0) + (longVpsvOk ? 1 : 0) + (longSdOk ? 1 : 0)
+
+shortHtfOk   = htfDowntrend
+shortMtfOk   = mtfDowntrend
+shortRangeOk = htfRangePos > rangeExtreme
+shortVwapOk  = close > vwapVal
+shortPocOk   = pocPrice < originLow or pocPrice > originHigh
+shortVpsvOk  = sessionVolDelta < 0
+shortSdOk    = not na(lastPivotHigh) and math.abs(originHigh - lastPivotHigh) < atr * pivotProxAtrMult
+shortConfirmCount = (shortHtfOk ? 1 : 0) + (shortMtfOk ? 1 : 0) + (shortRangeOk ? 1 : 0) + (shortVwapOk ? 1 : 0) + (shortPocOk ? 1 : 0) + (shortVpsvOk ? 1 : 0) + (shortSdOk ? 1 : 0)
 
 var int lastLongSignalBar  = na
 var int lastShortSignalBar = na

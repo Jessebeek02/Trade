@@ -8,9 +8,15 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
 
 ## Bekende versimpelingen (belangrijk!)
 
-- **Geen Volume Profile / POC en geen Supply/Demand-zones** — niet
-  betrouwbaar native uit te lezen in Pine. Alleen HTF-trend,
-  Range-positie en VWAP zijn hier beschikbaar als confirmaties.
+- **Alle 7 confirmaties zitten erin** (HTF, MTF, Range-positie, VWAP,
+  Volume Profile/POC, VPSV, Supply/Demand), maar de laatste drie zijn
+  **native Pine-benaderingen**, geen uitlezing van de LuxAlgo-indicatoren
+  die de live-bot gebruikt (dat kan een op-zichzelf-staand
+  strategy-script niet):
+  - Volume Profile/POC: eigen grof geprijsd volume-profiel over
+    `pocLookback` bars.
+  - VPSV: cumulatief sessievolume-delta sinds sessiestart.
+  - Supply/Demand: nabijheid van een recent pivot-high/low.
 - **Take-profit = vaste R:R-multiple** (instelbaar, standaard 2R) in
   plaats van de eerstvolgende liquiditeitszone/swing-high/low uit de
   cursus.
@@ -18,11 +24,11 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   (instelbaar), geen exacte cursus-definitie — die was nooit hard
   bevestigd (zie `docs/apa-signal-strategy.md`).
 - **`minConfirmations`-filter**: standaard worden alleen oksels genomen
-  met minstens dit aantal confirmaties (van de 3 beschikbare: HTF,
-  Range-positie, VWAP). Zet 'm op 0 om — net als de live-bot — alle
-  gevonden oksels te nemen ongeacht confirmaties. Vergelijk beide
-  instellingen in de Strategy Tester om te zien of filteren op
-  confirmaties het verschil maakt.
+  met minstens dit aantal confirmaties (van de 7, standaard 4). Zet 'm op
+  0 om — net als de live-bot — alle gevonden oksels te nemen ongeacht
+  confirmaties. **Let op:** zet 'm niet op het maximum (7) — dan moeten
+  alle confirmaties tegelijk kloppen, wat vrijwel nooit gebeurt en tot
+  0 trades leidt (dat overkwam de `4 van 4`-test hiervoor ook al).
 - Slechts één actieve pending oksel per richting tegelijk — de live-bot
   kan meerdere tegelijk bijhouden, dit script (nog) niet.
 
@@ -44,6 +50,13 @@ samen te verfijnen.
 
 Hoe verder terug in de tijd de chart geladen is (blijven scrollen naar
 links voordat je het script toevoegt), hoe langer de backtest-periode.
+
+**Bij het bijwerken van het script:** verwijder eerst de vorige versie
+van de chart (hover over de indicatornaam linksboven op de chart, klik
+het kruisje) vóórdat je de nieuwe versie toevoegt. Staan er twee
+versies tegelijk actief, dan plaatsen ze allebei trades en kloppen de
+Key Stats niet meer — controleer dit als het aantal trades er ineens
+onverklaarbaar hoog uitziet.
 
 ## Resultaten uitlezen via de tradingview-mcp
 
