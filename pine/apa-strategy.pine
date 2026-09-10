@@ -1,6 +1,16 @@
 //@version=6
 strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, initial_capital=10000, currency=currency.USD)
 
+// LET OP: dit script is niet meer synchroon met de actuele live-regels in
+// docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md. Sindsdien
+// gewijzigd: (1) de oksel/void is nu een SMAL gebied bij de oorsprong van
+// de impuls, niet de volle impuls-afstand zoals hier nog berekend wordt;
+// (2) entry gebeurt direct bij het ontstaan van de oksel (limit order),
+// niet pas na een retest zoals dit script nog doet; (3) SL is 0,25% vanaf
+// entry i.p.v. een ATR-buffer; (4) er is een Range-positie-confirmatie
+// bijgekomen. Vraag om dit script te laten resyncen voor je 'm weer voor
+// een backtest gebruikt.
+//
 // Vereenvoudigde, testbare vertaling van docs/apa-signal-strategy.md.
 // Bekende versimpelingen t.o.v. de cursus (zie disclaimer in dat bestand):
 // - Volume Profile / POC worden niet gebruikt (geen native Pine-toegang).

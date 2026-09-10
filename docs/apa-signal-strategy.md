@@ -19,10 +19,15 @@ kansen op de chart volgens een vast patroon, met bijbehorend risico/R:R.
    met waarschijnlijk merkbaar verhoogd volume t.o.v. de candles ervoor —
    geen marginale of twijfelachtige beweging. Twijfel je of een impuls
    overtuigend genoeg is: dan is het geen impuls, geen oksel, geen setup.
-2. **Backtest-zone (void)** — het "lege gebied" dat de impuls achterlaat:
-   een prijsrange waar weinig tot geen handel plaatsvond tijdens de impuls
-   zelf (te herkennen aan een gat in het volume-profiel / weinig candles
-   met overlap).
+2. **Backtest-zone (void/oksel)** — **niet** de volledige afstand die de
+   impuls aflegt, maar een **smal prijsgebied vlak bij de oorsprong** van
+   de impuls: de laatste 1-3 consolidatie-/opbouwcandles vlak vóórdat de
+   sterke beweging losbarst. Bij een mark-down (short) zit dit dus
+   **bovenaan**, vlak vóór de breakdown; bij een mark-up (long) zit dit
+   **onderaan**, vlak vóór de breakout. Beeld: de impuls is een arm die
+   omhoog/omlaag schiet, de oksel is het smalle plekje waar die arm aan
+   het lichaam vastzit — niet de arm zelf. Een void die de hele
+   impuls-afstand beslaat is dus fout; te breed.
 3. **De void (oksel) ís de entry-zone** — zodra de impuls een void
    achterlaat, is die zone zelf waar je instapt (long bij een
    mark-up-void, short bij een mark-down-void) — als een limit order in
@@ -90,9 +95,10 @@ HTF/VWAP/Range-positie): markeer als hoog risico, ook al klopt het
 
 ## Entry / SL / TP — "1.1.2-regel" (best-inschatting, te verfijnen)
 
-- **Entry**: in de oksel zelf — de rand van de void aan de kant waar de
-  prijs vandaan kwam (dus het eerste punt waar de prijs de zone weer zou
-  raken), als een limit order. Niet pas na een latere reactie.
+- **Entry**: in de oksel zelf — het smalle basisgebied bij de oorsprong
+  van de impuls (zie hierboven), als een limit order. Niet ergens
+  middenin of aan het einde van de volledige impuls-afstand, en niet pas
+  na een latere reactie.
 - **Stop-loss**: **0,25% vanaf entry** als uitgangspunt. Wijk hiervan af
   (bijv. 0,20% of 0,30%, of verder) als de chart een logischere,
   duidelijkere plek laat zien op basis van prijsactie — support/

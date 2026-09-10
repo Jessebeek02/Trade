@@ -54,8 +54,13 @@ schakel je aan het eind naar terug). (2) chart_set_timeframe naar 3.
 Gebruik data_get_ohlcv met een LANGERE geschiedenis (niet alleen de
 laatste paar bars — vraag bijv. de laatste 24-48 uur op 3m op) en zoek
 naar ALLE overtuigende impulsen (duidelijke, stevige beweging met
-merkbaar verhoogd volume — twijfelachtige bewegingen tellen niet) met
-bijbehorende void/backtest-zone, in BEIDE richtingen. (3) Lees
+merkbaar verhoogd volume — twijfelachtige bewegingen tellen niet), in
+BEIDE richtingen. Bepaal per impuls de bijbehorende oksel: NIET de volle
+afstand die de impuls aflegt, maar het SMALLE prijsgebied van de laatste
+1-3 consolidatie-/opbouwcandles vlak vóór het begin van de impuls (bij
+een mark-down zit dit bovenaan, vlak vóór de breakdown; bij een mark-up
+onderaan, vlak vóór de breakout) — zie docs/apa-signal-strategy.md voor
+het "oksel"-beeld. (3) Lees
 logs/apa-active-voids.csv. Voor elke regel daarin: check in de
 3m-data of de prijs die zone sinds "gevormd_op" al geraakt heeft — zo
 ja: die oksel is uitgespeeld, verwijder de regel uit het bestand (herschrijf
@@ -64,8 +69,9 @@ uit stap 2 met wat er (na opschoning) nog in logs/apa-active-voids.csv
 staat: voids die er al in staan zijn al gemeld, sla die over. Voor elke
 NIEUWE, nog niet eerder geziene en nog niet geretest void: dit is een
 volledige nieuwe setup — herhaal onderstaande voor elke nieuwe oksel
-apart als er meerdere tegelijk zijn. Bepaal entry (rand van de void aan
-de kant waar de prijs vandaan kwam, als limit order), stop-loss (0,25%
+apart als er meerdere tegelijk zijn. Bepaal entry (binnen de smalle
+oksel zelf, als limit order — niet ergens middenin of aan het eind van
+de volledige impuls-afstand), stop-loss (0,25%
 vanaf entry als uitgangspunt — wijk hiervan af, bijv. 0,20% of 0,30%,
 als de 3m-prijsactie een logischere plek laat zien op basis van support/
 demand/liquiditeit/volume) en take-profit op basis van deze 3m-data.
