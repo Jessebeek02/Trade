@@ -20,7 +20,8 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.pe
 //   confirmaties (van 7) - zet dat op 0 om, net als de live-bot, ALLE
 //   gevonden oksels te nemen ongeacht confirmaties. Zo kun je in de
 //   Strategy Tester zelf vergelijken.
-// - Take-profit is een vaste R:R-multiple i.p.v. de eerstvolgende
+// - Take-profit is een vast percentage vanaf entry (instelbaar via
+//   `tpPercent`, los van de SL-afstand) i.p.v. de eerstvolgende
 //   liquiditeitszone/swing-high/low.
 // - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
 //   vervangt de oude) - de live-bot kan meerdere oksels tegelijk
@@ -43,7 +44,7 @@ volLen          = input.int(20, "Volume-gemiddelde-lengte")
 volMult         = input.float(1.8, "Impuls vereist volume x dit gemiddelde (overtuigend)")
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
 slPercent       = input.float(0.25, "SL-afstand vanaf entry (%)") / 100
-rrMultiple      = input.float(2.0, "Take-profit R:R-multiple")
+tpPercent       = input.float(0.50, "TP-afstand vanaf entry (%) - los van R:R, direct instelbaar") / 100
 maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
 pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
@@ -153,8 +154,7 @@ var int lastShortSignalBar = na
 if isImpulseUp and longConfirmCount >= minConfirmations
     entryPrice = originHigh
     slPrice    = entryPrice * (1 - slPercent)
-    riskAmt    = entryPrice - slPrice
-    tpPrice    = entryPrice + riskAmt * rrMultiple
+    tpPrice    = entryPrice * (1 + tpPercent)
     strategy.cancel("APA Long")
     strategy.entry("APA Long", strategy.long, limit=entryPrice)
     strategy.exit("APA Long Exit", "APA Long", stop=slPrice, limit=tpPrice)
@@ -163,8 +163,7 @@ if isImpulseUp and longConfirmCount >= minConfirmations
 if isImpulseDown and shortConfirmCount >= minConfirmations
     entryPrice = originLow
     slPrice    = entryPrice * (1 + slPercent)
-    riskAmt    = slPrice - entryPrice
-    tpPrice    = entryPrice - riskAmt * rrMultiple
+    tpPrice    = entryPrice * (1 - tpPercent)
     strategy.cancel("APA Short")
     strategy.entry("APA Short", strategy.short, limit=entryPrice)
     strategy.exit("APA Short Exit", "APA Short", stop=slPrice, limit=tpPrice)

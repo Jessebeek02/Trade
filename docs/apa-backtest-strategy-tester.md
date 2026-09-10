@@ -17,9 +17,11 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
     `pocLookback` bars.
   - VPSV: cumulatief sessievolume-delta sinds sessiestart.
   - Supply/Demand: nabijheid van een recent pivot-high/low.
-- **Take-profit = vaste R:R-multiple** (instelbaar, standaard 2R) in
-  plaats van de eerstvolgende liquiditeitszone/swing-high/low uit de
-  cursus.
+- **Take-profit = vast percentage vanaf entry** (`tpPercent`, standaard
+  0,50%, los van de SL-afstand direct instelbaar) in plaats van de
+  eerstvolgende liquiditeitszone/swing-high/low uit de cursus. Test bijv.
+  0,25% vs. 0,50% naast elkaar om te zien of een kortere TP de winrate
+  genoeg verhoogt om het lagere R:R te compenseren.
 - Impuls-detectie is een ATR-gebaseerde drempel + volume-eis
   (instelbaar), geen exacte cursus-definitie — die was nooit hard
   bevestigd (zie `docs/apa-signal-strategy.md`).
