@@ -29,6 +29,12 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
   worden wel pas ná bevestiging berekend, met de op dat moment actuele
   pivot. Eén candle die niet aan de eis voldoet annuleert de wachtende
   setup helemaal (geen nieuwe poging totdat er een nieuw signaal komt).
+  **Let op:** omdat de entry nu op de verste rand van de oksel ligt (ná
+  de impuls én de reclaim-candles, die de prijs juist verder weg duwen),
+  moet de prijs relatief diep terugzakken voordat de order gevuld wordt —
+  `maxBarsWaitFill` (standaard 400, was 80) geeft daar bewust ruimte
+  voor. Een te korte wachttijd gaf hier "0 trades" bij het testen: de
+  order verviel steeds voordat zo'n diepe terugval kans kreeg.
 - **SL op structuur, begrensd op 0,25%**: de SL staat op het laatste
   pivot-punt (bovenkant lokale range voor short, onderkant voor long —
   zoals je zelf op de chart aanwees), met `slFallbackPercent` (standaard

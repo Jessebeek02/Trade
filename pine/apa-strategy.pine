@@ -38,7 +38,13 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.fi
 //   van het signaal, verschuift niet mee met de reclaim-candles. SL/TP
 //   worden wel pas ná bevestiging berekend, met de op dat moment actuele
 //   pivot. Eén candle die niet aan de reclaim-eis voldoet annuleert de
-//   wachtende setup volledig.
+//   wachtende setup volledig. LET OP: omdat de entry nu op de VERSTE rand
+//   van de oksel ligt (ná de impuls én ná de reclaim-candles, die de prijs
+//   juist verder weg duwen), moet de prijs een relatief diepe retracement
+//   maken voordat de limit order gevuld wordt - vandaar `maxBarsWaitFill`
+//   (standaard 400, was 80): met een te korte wachttijd vervalt de order
+//   vaak voordat die diepe terugval kans krijgt, wat tot (bijna) nul
+//   trades kan leiden.
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
@@ -110,7 +116,7 @@ tp1Portion      = input.float(50, "TP1: % van positie sluiten")
 tp2RMultiple    = input.float(2.0, "TP2 (x SL-afstand) - cursus: 1:2")
 tp2Portion      = input.float(50, "TP2: % van positie sluiten")
 riskPercent     = input.float(1.0, "Risico per trade (% van kapitaal) - bepaalt de ordergrootte") / 100
-maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
+maxBarsWaitFill = input.int(400, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
 pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
 pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
