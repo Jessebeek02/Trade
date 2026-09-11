@@ -6,6 +6,16 @@ TradingView's **eigen** historische data voor jouw MEXC-symbool (jaren
 terug, geen 50-candle-limiet zoals bij de Crypto.com-connector) en de
 ingebouwde Strategy Tester — geen losse historische data-export nodig.
 
+**Status:** dit is de instellingen-set die tot nu toe het beste backtest-
+resultaat gaf — profit factor **1,568**, 237 trades, **+6,78 USD** netto,
+commission load 15,01% (periode Aug 17 – Sep 10). Er zijn daarna diverse
+varianten geprobeerd (reclaim-bevestiging vóór entry, entry aan de
+verste rand van de oksel, letterlijke cursus-SL/TP-percentages,
+risk-based positiegrootte) — die gaven geen beter resultaat (de laatste
+zelfs een verlieslatende PF 0,775 met een omgedraaide long/short-
+verhouding), dus dit is bewust weer de basis. Die experimenten staan nog
+in de git-geschiedenis als je ze terug wilt zien.
+
 ## Bekende versimpelingen (belangrijk!)
 
 - **Alle 7 confirmaties zitten erin** (HTF, MTF, Range-positie, VWAP,
@@ -17,68 +27,25 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
     `pocLookback` bars.
   - VPSV: cumulatief sessievolume-delta sinds sessiestart.
   - Supply/Demand: nabijheid van een recent pivot-high/low.
-- **Entry pas ná bevestiging, niet direct bij het ontstaan van de oksel**:
-  zodra een oksel + confirmaties kloppen, wordt er nog geen order
-  geplaatst. Pas als de prijs `reclaimCandles` (standaard 3) candles op
-  rij volledig — open én close — boven de **bovenkant** van de oksel
-  sluit (long) / onder de **onderkant** sluit (short), wordt er een limit
-  order geplaatst. De entry-prijs is dan de **andere kant** van de oksel:
-  voor long de onderkant (het diepste punt van de void — de entry-lijn
-  zit onderaan de void), voor short de bovenkant. Bevroren op het moment
-  van het signaal, verschuift niet mee met de reclaim-candles. SL/TP
-  worden wel pas ná bevestiging berekend, met de op dat moment actuele
-  pivot. Eén candle die niet aan de eis voldoet annuleert de wachtende
-  setup helemaal (geen nieuwe poging totdat er een nieuw signaal komt).
-  **Let op:** omdat de entry nu op de verste rand van de oksel ligt (ná
-  de impuls én de reclaim-candles, die de prijs juist verder weg duwen),
-  moet de prijs relatief diep terugzakken voordat de order gevuld wordt —
-  `maxBarsWaitFill` (standaard 400, was 80) geeft daar bewust ruimte voor.
-  (Een eerdere "0 trades"-bug bleek uiteindelijk niet hierdoor te komen,
-  zie de margin-uitleg hieronder — maar 400 is sowieso een realistischer
-  wachttijd voor een diepe retracement dan 80.)
-- **SL op structuur, begrensd op 0,25%**: de SL staat op het laatste
-  pivot-punt (bovenkant lokale range voor short, onderkant voor long —
-  zoals je zelf op de chart aanwees), met `slFallbackPercent` (standaard
-  0,25%) als terugvaloptie wanneer er geen bruikbaar pivot-punt is. De
-  SL-afstand is begrensd op maximaal `maxSlPercent` (standaard **0,25%**
-  — overeenkomstig de letterlijke "SL = 0,25%" uit module 3, Scalpen &
-  LTF-entry, van de cursus-naslagdocumenten) — ligt het pivot-punt
-  verder weg dan dat, dan wordt de SL afgekapt tot dat maximum. Ligt een
-  pivot-punt dichterbij, dan wordt die (krappere) SL gebruikt.
-- **Take-profit schaalt mee met die SL-afstand**: twee niveaus, als
-  R-multiples van de (variabele) SL-afstand — standaard **TP1 = 1x, TP2
-  = 2x**, waarvan elk 50% van de positie sluit — overeenkomstig de
-  letterlijke "TP1 = 0,25% (1:1) / TP2 = 0,50% (1:2)" uit dezelfde
-  cursus-module (was eerder 2,5x, teruggezet naar 2x). De cursus toonde
-  ook vage "30/40%"/"40/20%"-percentages bij de partiële afbouw, maar die
-  konden zonder audio niet betrouwbaar worden herleid — 50/50 blijft hier
-  een eigen, simpele keuze. Was eerst drie niveaus (1x/2x/4x, 40/40/20%),
-  maar met kleine targets en 3 losse exit-orders per trade woog de
-  commissie (fee per fill op MEXC) te zwaar mee t.o.v. de winst — vandaar
-  terug naar twee niveaus (minder fill-momenten). Alle vier waardes los
-  instelbaar via de Inputs. De twee TP's delen dezelfde SL: raakt de
-  prijs de SL voordat (een deel van) de TP's geraakt zijn, sluit het
-  resterende deel van de positie daar.
+- **SL op structuur, niet op een vast percentage**: de SL staat op het
+  laatste pivot-punt (bovenkant lokale range voor short, onderkant voor
+  long — het "structurele" niveau, zoals je zelf op de chart aanwees),
+  met `slFallbackPercent` (standaard 0,25%) als terugvaloptie wanneer er
+  geen bruikbaar pivot-punt is. De SL-afstand verschilt dus per trade,
+  maar is begrensd op maximaal `maxSlPercent` (standaard 1,0%) — ligt het
+  pivot-punt verder weg dan dat, dan wordt de SL afgekapt tot dat
+  maximum.
+- **Take-profit schaalt mee met die SL-afstand**: drie niveaus, als
+  R-multiples van de (variabele) SL-afstand — standaard TP1 = 1x, TP2 =
+  2x, TP3 = 4x, waarvan resp. 40%/40%/20% van de positie sluit. Alle zes
+  waardes los instelbaar via de Inputs, in plaats van de eerstvolgende
+  liquiditeitszone/swing-high/low uit de cursus. De drie TP's delen
+  dezelfde SL: raakt de prijs de SL voordat (een deel van) de TP's
+  geraakt zijn, sluit het resterende deel van de positie daar.
 - **Breakeven na TP1**: zodra TP1 geraakt is, schuift de SL van het
-  resterende deel (TP2) naar de entry-prijs — die trade kan vanaf dan
+  resterende deel (TP2+TP3) naar de entry-prijs — die trade kan vanaf dan
   geen verlies meer worden, hooguit quitte spelen als de rest ook op
   entry sluit.
-- **Risk-based positiegrootte**: elke trade riskeert een vast percentage
-  van het kapitaal (`riskPercent`, standaard 1%) — de ordergrootte wordt
-  teruggerekend uit de entry/SL-afstand (risicobedrag / afstand), zoals
-  DoopieCash's eigen "Positie Grootte Calculator" (module 3) dit ook
-  rekent. Was eerst een vast percentage van het kapitaal als ordergrootte
-  (`percent_of_equity`, los van de SL-afstand) — dat maakte het
-  daadwerkelijke risico per trade ongelijk: een krappe SL riskeerde in
-  R-termen onbedoeld meer dan een ruime SL, en de profit factor/R-cijfers
-  van eerdere tests zijn dus niet 1-op-1 vergelijkbaar met deze versie.
-  **Belangrijk:** 1% risico bij een SL van max 0,25% vraagt wiskundig
-  altijd zo'n 4x hefboom (soms meer, bij een nog krapper structureel
-  pivot-punt) — TradingView's Strategy Tester staat standaard **geen**
-  hefboom toe (`margin_long`/`margin_short` = 100%), dus zonder die
-  instelling expliciet te verruimen worden zulke orders stilzwijgend
-  geweigerd (gaf hier ooit "0 trades"). Het script zet dit daarom op 5%
-  margin (tot 20x hefboom) in de `strategy(...)`-declaratie.
 - **Filters om minder, sterkere setups te krijgen** (dit wijkt af van de
   live-bot, die blokkeert bewust niets):
   - Impuls-drempel en volume-eis staan standaard op **2,0x** (i.p.v.
@@ -90,20 +57,18 @@ ingebouwde Strategy Tester — geen losse historische data-export nodig.
     de andere 5.
   - Alle **7** confirmaties (HTF, MTF, Range-positie, VWAP, POC, VPSV,
     Supply/Demand) tellen mee: `minConfirmations` (standaard 3) bepaalt
-    hoeveel daarvan minstens moeten kloppen, ongeacht welke. 4 is ook
-    getest, maar gaf minder trades zonder betere kwaliteit — teruggezet
-    naar 3. **Let op:** zet 'm niet op het maximum (7) — dan moeten alle
-    zeven tegelijk kloppen, wat zelden gebeurt.
-  - **Let op bij het interpreteren van resultaten:** met de huidige
-    testperiode (3,5 week) en het lage aantal trades per variant
-    (100-250) zijn verschillen van bijv. profit factor 1,1 vs 1,5 tussen
-    twee parametersets niet per se een echt signaal — dat kan net zo goed
-    ruis zijn. Neem kleine PF/winrate-verschillen tussen tests met een
-    korrel zout; alleen grote, herhaalde patronen (zoals de aanhoudende
-    long/short-asymmetrie) zijn vooralsnog betrouwbaar genoeg om op te
-    sturen.
+    hoeveel daarvan minstens moeten kloppen, ongeacht welke. **Let op:**
+    zet 'm niet op het maximum (7) — dan moeten alle zeven tegelijk
+    kloppen, wat zelden gebeurt.
 - Slechts één actieve pending oksel per richting tegelijk — de live-bot
   kan meerdere tegelijk bijhouden, dit script (nog) niet.
+- **Let op bij het interpreteren van resultaten:** met de huidige
+  testperiode (3,5 week) en het lage aantal trades per variant
+  (100-250) zijn verschillen van bijv. profit factor 1,1 vs 1,5 tussen
+  twee parametersets niet per se een echt signaal — dat kan net zo goed
+  ruis zijn. Neem kleine PF/winrate-verschillen tussen tests met een
+  korrel zout; alleen grote, herhaalde patronen (zoals long/short-
+  asymmetrie) zijn betrouwbaar genoeg om op te sturen.
 
 Dit is dus een **eerste testbare benadering**, geen 1-op-1 kopie van de
 cursus. De uitkomst gebruiken we om de regels (en deze script-parameters)
@@ -114,31 +79,6 @@ samen te verfijnen.
 1. Open TradingView Desktop, je MEXC BTC/USDT-symbool, timeframe **3m**
    (dit is de LTF waar de strategie op draait — HTF/Daily en MTF/15m
    worden intern opgehaald, daar hoef je de chart niet voor te wisselen).
-
-### Testen op 15m of 1h (bijv. voor meer kalenderhistorie zonder betaald plan)
-
-De HTF/MTF-inputs staan standaard op **"Chart"** (leeg) = automatisch
-passend bij de timeframe die je op de chart hebt staan. Je kunt dit
-script dus ook direct op de **15m**- of **1h**-chart draaien, zonder verder
-iets in te stellen:
-
-| Chart-timeframe (LTF) | MTF (automatisch) | HTF (automatisch) |
-| --- | --- | --- |
-| 3m  | 15m | Daily |
-| 15m | 1h  | Daily |
-| 1h  | 4h  | Daily |
-| 4h  | Daily | Weekly |
-
-Handig omdat TradingView's gratis plan op hogere timeframes meestal wél
-meer kalenderhistorie teruggeeft dan op 3m — zo kun je met een gratis
-account toch een periode testen die zowel een bull- als een bear-fase
-bevat, om te checken of long en short allebei werken en niet toevallig
-scheef staan door een eenzijdige testperiode. Let op: het is dan geen
-1-op-1 test van de "echte" 3m-setup — de overige bar-gebaseerde instellingen
-(impuls-lookback, oksel-basis, ATR/volume-lengte, POC/pivot-lookback,
-max-wacht-bars) blijven native chart-bars en betekenen dus een langere
-kalenderperiode per bar op 1h dan op 3m. Zie het als een groffere,
-aanvullende robuustheidscheck, niet als vervanging van de 3m-run.
 2. Open de **Pine Editor** (tabblad onderaan het scherm).
 3. Nieuw script → plak de inhoud van `pine/apa-strategy.pine`.
 4. Klik **"Add to chart"** — de strategie draait nu automatisch terug

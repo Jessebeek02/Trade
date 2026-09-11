@@ -1,13 +1,16 @@
 //@version=6
-strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1, initial_capital=10000, currency=currency.USD, margin_long=5, margin_short=5)
-// default_qty_* wordt hier nooit echt gebruikt - elke strategy.entry() krijgt
-// een expliciete qty= mee, berekend uit riskPercent (zie hieronder). Die
-// risk-based sizing (1% risico / max 0,25% SL) vraagt inherent ~4x hefboom
-// (soms meer, als een structureel pivot nog krapper is dan de 0,25%-cap) -
-// zonder margin_long/margin_short (die standaard op 100%, dus GEEN hefboom,
-// staan) weigert TradingView zo'n order stilzwijgend, wat tot 0 trades
-// leidde. 5% margin = tot 20x hefboom toegestaan, ruim voldoende speling.
+strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, initial_capital=10000, currency=currency.USD)
 
+// Teruggezet naar de versie die tot nu toe de beste backtestresultaten gaf
+// (commit 6a097b5: profit factor 1,568, 237 trades, +6,78 USD, commission
+// load 15,01%, Aug 17 - Sep 10). Latere experimenten (reclaim-bevestiging,
+// entry aan de verste rand, cursus-SL/TP-percentages, risk-based sizing)
+// gaven geen betere resultaten - de risk-based sizing gaf zelfs een lange
+// tijd 0 trades door een margin/hefboom-bug, en na de fix een verlieslatend
+// resultaat (PF 0,775) met omgedraaide long/short-verhouding. Die varianten
+// staan nog in de git-geschiedenis, dit is bewust weer de oude, best
+// werkende basis.
+//
 // Bijgewerkt om te matchen met de actuele live-regels in
 // docs/apa-signal-strategy.md / docs/apa-signal-loop-local.md.
 // Bekende versimpelingen t.o.v. de live-bot:
@@ -30,82 +33,32 @@ strategy("APA - Abrupte Prijs Actie", overlay=true, default_qty_type=strategy.fi
 //   allebei kloppen), maar dat gaf te weinig trades (6) om iets over te
 //   zeggen - nu weer een gewone, optionele confirmatie samen met de
 //   andere 5, van de 7 moeten er minstens `minConfirmations` (standaard 3)
-//   meekloppen (4 werd getest, gaf géén betere kwaliteit, alleen minder
-//   trades - teruggezet).
-// - Entry wordt NIET meer direct geplaatst zodra de oksel ontstaat. Pas als
-//   de prijs `reclaimCandles` (standaard 3) candles op rij volledig (open
-//   én close) boven de BOVENKANT van de oksel sluit (long) / onder de
-//   ONDERKANT sluit (short) - dus de void daadwerkelijk "gewonnen" is -
-//   wordt er een limit order geplaatst. De entry-prijs is dan de ANDERE
-//   kant van de oksel: voor long de onderkant (`originLow` - het diepste
-//   punt van de void, zoals aangewezen: de entry-lijn zit onderaan de
-//   void), voor short de bovenkant (`originHigh`). Bevroren op het moment
-//   van het signaal, verschuift niet mee met de reclaim-candles. SL/TP
-//   worden wel pas ná bevestiging berekend, met de op dat moment actuele
-//   pivot. Eén candle die niet aan de reclaim-eis voldoet annuleert de
-//   wachtende setup volledig. LET OP: omdat de entry nu op de VERSTE rand
-//   van de oksel ligt (ná de impuls én ná de reclaim-candles, die de prijs
-//   juist verder weg duwen), moet de prijs een relatief diepe retracement
-//   maken voordat de limit order gevuld wordt - vandaar `maxBarsWaitFill`
-//   (standaard 400, was 80): met een te korte wachttijd vervalt de order
-//   vaak voordat die diepe terugval kans krijgt, wat tot (bijna) nul
-//   trades kan leiden.
+//   meekloppen.
 // - SL staat op het laatste pivot-punt (structuur: bovenkant lokale range
 //   voor short, onderkant voor long) i.p.v. een vast percentage - met
 //   `slFallbackPercent` als terugvaloptie wanneer er geen bruikbaar
-//   pivot-punt is. De SL-afstand is dus per trade anders, maar begrensd op
-//   maximaal `maxSlPercent` (standaard **0,25%**, overeenkomstig de
-//   letterlijke "SL = 0,25%" uit module 3 - Scalpen/LTF-entry van de
-//   cursus) - ligt het pivot-punt verder weg, dan wordt de SL afgekapt tot
-//   dat maximum. Ligt een pivot-punt dichterbij, dan wordt die (krappere)
-//   SL gebruikt.
-// - Take-profit schaalt in twee niveaus mee met die (variabele) SL-afstand,
-//   als R-multiples: **1R / 2R** (standaard, elk instelbaar), overeenkomstig
-//   de letterlijke "TP1 = 0,25% (1:1) / TP2 = 0,50% (1:2)" uit dezelfde
-//   cursus-module. Standaardverdeling: 50% op TP1, 50% op TP2 (de cursus
-//   toonde vage "30/40%"/"40/20%"-labels bij de partiële afbouw, maar dat
-//   kon zonder audio niet betrouwbaar worden herleid - 50/50 is hier een
-//   eigen, simpele keuze). Was eerst drie niveaus (1R/2R/4R, 40/40/20%),
-//   maar met kleine targets en 3 losse exit-orders per trade woog de
-//   commissie (MEXC-fees per fill) te zwaar mee - vandaar twee niveaus.
-//   Zodra TP1 raakt, schuift de SL van het resterende deel (TP2) naar de
-//   entry-prijs (breakeven) - die trade kan dan geen verlies meer worden.
-// - Positiegrootte is **risk-based**: elke trade riskeert een vast
-//   percentage van het kapitaal (`riskPercent`, standaard 1%) - de
-//   ordergrootte wordt teruggerekend uit de entry/SL-afstand
-//   (risicobedrag / afstand), zoals de cursus dit ook rekent (DoopieCash's
-//   "Positie Grootte Calculator" in module 3). Dit was eerst een vast %
-//   van het kapitaal als ordergrootte (ongeacht SL-afstand), wat het
-//   risico per trade ongelijk maakte - een krappe SL riskeerde in
-//   R-termen onbedoeld meer dan een ruime SL.
+//   pivot-punt is. De SL-afstand is dus per trade anders, maar begrensd
+//   op maximaal `maxSlPercent` (standaard 1,0%) - ligt het pivot-punt
+//   verder weg, dan wordt de SL afgekapt tot dat maximum.
+// - Take-profit schaalt in drie niveaus mee met die (variabele)
+//   SL-afstand, als R-multiples (standaard 1R/2R/4R, elk instelbaar), i.p.v.
+//   een vast percentage of de eerstvolgende liquiditeitszone/swing-high/low
+//   uit de cursus. Standaardverdeling: 40% op TP1, 40% op TP2, 20% op TP3.
+//   Zodra TP1 raakt, schuift de SL van het resterende deel (TP2+TP3) naar
+//   de entry-prijs (breakeven) - die trade kan dan geen verlies meer
+//   worden.
 // - Slechts één actieve pending oksel per richting tegelijk (een nieuwe
 //   vervangt de oude) - de live-bot kan meerdere oksels tegelijk
 //   bijhouden, dit script niet.
 //
-// Toepassen op de **3m-chart** (LTF) voor de "echte" APA-setup - HTF/MTF
-// worden dan automatisch Daily/15m via request.security, daar hoef je de
-// chart niet voor te wisselen. HTF/MTF-inputs staan standaard op "Chart"
-// (leeg) = automatisch passend bij de chart-timeframe, dus je kunt dit
-// script ook direct op **15m of 1h** draaien (bijv. om met meer
-// kalender-historie te testen dan de gratis 3m-databudget toelaat, of om
-// long/short apart te vergelijken over bull- én bear-periodes) - MTF/HTF
-// schalen dan automatisch mee (15m→MTF 1h/HTF D, 1h→MTF 4h/HTF D). Let
-// op: de andere "bars"-instellingen (impuls-lookback, baseBars, ATR/
-// volume-lengte, pocLookback, pivotLen, maxBarsWaitFill) blijven native
-// chart-bars - hun betekenis in kalendertijd verandert dus mee met de
-// gekozen chart-timeframe, dit is dan ook een grovere benadering dan de
-// 3m-run.
+// Toepassen op de **3m-chart** (LTF). HTF (Daily) wordt intern via
+// request.security opgehaald - daar hoef je de chart niet voor te
+// wisselen.
 
 // ── Inputs ──────────────────────────────────────────────────────────────
-// HTF/MTF staan standaard op "Chart" (leeg) = automatisch bepaald op basis
-// van de timeframe die je op de chart hebt staan, zodat je dit script ook
-// op 15m of 1h kunt draaien (bijv. om long/short apart te checken over een
-// langere kalenderperiode dan de 3m-chart gratis toelaat) zonder telkens
-// zelf HTF/MTF opnieuw te hoeven instellen. Kies je hier zelf een vaste
-// timeframe, dan overschrijft die de automatische keuze.
-htfInput        = input.timeframe("", "HTF voor trendbepaling (leeg = automatisch)")
+htf             = input.timeframe("D", "HTF voor trendbepaling")
 htfEmaLen       = input.int(50, "HTF EMA-lengte (trendfilter)")
-mtfInput        = input.timeframe("", "MTF voor tussenliggende confirmatie (leeg = automatisch)")
+mtf             = input.timeframe("15", "MTF voor tussenliggende confirmatie")
 mtfEmaLen       = input.int(50, "MTF EMA-lengte (trendfilter)")
 rangeLen        = input.int(100, "Range-lengte voor range-positie (bars op HTF)")
 impulseLookback = input.int(3, "Aantal bars voor impuls-detectie")
@@ -115,42 +68,20 @@ volLen          = input.int(20, "Volume-gemiddelde-lengte")
 volMult         = input.float(2.0, "Impuls vereist volume x dit gemiddelde - hoger = strenger")
 baseBars        = input.int(2, "Aantal candles voor de oksel-basis (bij de oorsprong)")
 slFallbackPercent = input.float(0.25, "SL-afstand vanaf entry (%) - fallback als er geen bruikbaar pivot-punt is") / 100
-maxSlPercent    = input.float(0.25, "Maximum SL-afstand vanaf entry (%) - kapt de structurele SL af (cursus: 0,25%)") / 100
-tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand) - cursus: 1:1")
-tp1Portion      = input.float(50, "TP1: % van positie sluiten")
-tp2RMultiple    = input.float(2.0, "TP2 (x SL-afstand) - cursus: 1:2")
-tp2Portion      = input.float(50, "TP2: % van positie sluiten")
-riskPercent     = input.float(1.0, "Risico per trade (% van kapitaal) - bepaalt de ordergrootte") / 100
-maxBarsWaitFill = input.int(400, "Max bars wachten tot de limit order gevuld wordt")
+maxSlPercent    = input.float(1.0, "Maximum SL-afstand vanaf entry (%) - kapt de structurele SL af als het pivot-punt te ver weg ligt") / 100
+tp1RMultiple    = input.float(1.0, "TP1 (x SL-afstand)")
+tp1Portion      = input.float(40, "TP1: % van positie sluiten")
+tp2RMultiple    = input.float(2.0, "TP2 (x SL-afstand)")
+tp2Portion      = input.float(40, "TP2: % van positie sluiten")
+tp3RMultiple    = input.float(4.0, "TP3 (x SL-afstand)")
+tp3Portion      = input.float(20, "TP3: % van positie sluiten")
+maxBarsWaitFill = input.int(80, "Max bars wachten tot de limit order gevuld wordt")
 rangeExtreme    = input.float(0.3, "Range-extreem-marge (0-1, buitenste deel = ongunstig)")
 pocLookback     = input.int(50, "Volume Profile/POC-lookback (bars)")
 pocBins         = input.int(20, "Aantal prijs-bakjes voor POC-benadering")
 pivotLen        = input.int(10, "Pivot-lengte voor Supply/Demand-benadering")
 pivotProxAtrMult = input.float(2.0, "Supply/Demand-nabijheid (x ATR)")
 minConfirmations = input.int(3, "Min. aantal van de 7 confirmaties (HTF/MTF/Range/VWAP/POC/VPSV/S&D) - zet niet op het maximum (7)")
-reclaimCandles  = input.int(3, "Aantal candles die open+close boven/onder de oksel moeten sluiten voordat de trade geplaatst wordt")
-
-// ── Automatische HTF/MTF op basis van de chart-timeframe (LTF) ──────────
-f_autoMtf() =>
-    string result = switch timeframe.period
-        "3"   => "15"
-        "15"  => "60"
-        "60"  => "240"
-        "240" => "D"
-        => "60"
-    result
-
-f_autoHtf() =>
-    string result = switch timeframe.period
-        "3"   => "D"
-        "15"  => "D"
-        "60"  => "D"
-        "240" => "W"
-        => "D"
-    result
-
-htf = htfInput == "" ? f_autoHtf() : htfInput
-mtf = mtfInput == "" ? f_autoMtf() : mtfInput
 
 atr    = ta.atr(atrLen)
 volAvg = ta.sma(volume, volLen)
@@ -249,112 +180,72 @@ var int lastShortSignalBar = na
 // ── Breakeven-state: zodra TP1 raakt, SL van het resterende deel naar entry ─
 var float openEntryPrice = na
 var float openTp2Price   = na
+var float openTp3Price   = na
 var bool  openIsLong     = false
 var bool  tp1Filled      = false
 
-// ── Wachtfase: pas plaatsen zodra de oksel "gewonnen" is ────────────────
-// Niet meer direct een limit order bij het ontstaan van de oksel - eerst
-// moet de prijs `reclaimCandles` candles op rij volledig (open én close)
-// boven de bovenkant van de oksel sluiten (long) / onder de onderkant
-// sluiten (short) - dat is de confirmatie-poort (`longGateRef`/
-// `shortGateRef`). De entry-prijs zelf is de ANDERE kant van de oksel:
-// voor een long de onderkant (`originLow`, het diepste punt van de
-// void/basis - zoals aangewezen: de void wordt getekend vanaf de
-// oorsprong van de impuls, en de entry-lijn zit onderaan die void), voor
-// een short de bovenkant (`originHigh`). Bevroren op het moment van het
-// signaal, verschuift dus niet mee met de reclaim-candles. SL/TP worden
-// wel pas ná bevestiging berekend, met de op dat moment actuele pivot.
-var bool  longPending      = false
-var float longGateRef      = na
-var float longEntryLevel   = na
-var int   longArmBar       = na
-var int   longConfirmBars  = 0
-
-var bool  shortPending      = false
-var float shortGateRef      = na
-var float shortEntryLevel   = na
-var int   shortArmBar       = na
-var int   shortConfirmBars  = 0
-
-// Signaal: oksel + confirmaties kloppen - nog geen niveaus berekenen,
-// alleen de bevestigingsteller starten.
+// ── Entry: direct als limit order zodra de oksel ontstaat ───────────────
+// Entry = de rand van de oksel het dichtst bij de huidige prijs (het
+// eerste punt dat geraakt wordt bij een terugval naar de zone).
 if isImpulseUp and longConfirmCount >= minConfirmations
-    longGateRef     := originHigh
-    longEntryLevel  := originLow
-    longArmBar      := bar_index
-    longConfirmBars := 0
-    longPending     := true
+    entryPrice = originHigh
+    // SL op de onderkant van de recente (lokale) range/structuur - het
+    // laatste pivot-low - met een percentage-fallback als dat er niet is
+    // of aan de verkeerde kant van entry ligt.
+    slPriceRaw = (not na(lastPivotLow) and lastPivotLow < entryPrice) ? lastPivotLow : entryPrice * (1 - slFallbackPercent)
+    // Kap de SL-afstand af op maxSlPercent als het pivot-punt te ver weg ligt.
+    slPrice    = math.max(slPriceRaw, entryPrice * (1 - maxSlPercent))
+    riskDist   = entryPrice - slPrice
+    tp1Price   = entryPrice + riskDist * tp1RMultiple
+    tp2Price   = entryPrice + riskDist * tp2RMultiple
+    tp3Price   = entryPrice + riskDist * tp3RMultiple
+    strategy.cancel("APA Long")
+    strategy.entry("APA Long", strategy.long, limit=entryPrice)
+    strategy.exit("APA Long TP1", "APA Long", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
+    strategy.exit("APA Long TP2", "APA Long", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
+    strategy.exit("APA Long TP3", "APA Long", qty_percent=tp3Portion, stop=slPrice, limit=tp3Price)
+    lastLongSignalBar := bar_index
+    openEntryPrice := entryPrice
+    openTp2Price   := tp2Price
+    openTp3Price   := tp3Price
+    openIsLong     := true
+    tp1Filled       := false
 
 if isImpulseDown and shortConfirmCount >= minConfirmations
-    shortGateRef     := originLow
-    shortEntryLevel  := originHigh
-    shortArmBar      := bar_index
-    shortConfirmBars := 0
-    shortPending     := true
-
-// Bevestiging bijhouden (start de bar ná het signaal) - elke candle die
-// niet volledig boven/onder de oksel sluit, annuleert de wachtende setup.
-// Zodra bevestigd: entry = de onderkant van de oksel (long) / bovenkant
-// (short), SL/TP pas nu berekend op basis van de actuele pivot.
-if longPending and bar_index > longArmBar
-    if open > longGateRef and close > longGateRef
-        longConfirmBars += 1
-        if longConfirmBars >= reclaimCandles
-            entryPrice = longEntryLevel
-            slPriceRaw = (not na(lastPivotLow) and lastPivotLow < entryPrice) ? lastPivotLow : entryPrice * (1 - slFallbackPercent)
-            slPrice    = math.max(slPriceRaw, entryPrice * (1 - maxSlPercent))
-            riskDist   = entryPrice - slPrice
-            tp1Price   = entryPrice + riskDist * tp1RMultiple
-            tp2Price   = entryPrice + riskDist * tp2RMultiple
-            qty        = (strategy.equity * riskPercent) / riskDist
-            strategy.cancel("APA Long")
-            strategy.entry("APA Long", strategy.long, qty=qty, limit=entryPrice)
-            strategy.exit("APA Long TP1", "APA Long", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
-            strategy.exit("APA Long TP2", "APA Long", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
-            lastLongSignalBar := bar_index
-            openEntryPrice    := entryPrice
-            openTp2Price      := tp2Price
-            openIsLong        := true
-            tp1Filled         := false
-            longPending       := false
-    else
-        longPending     := false
-        longConfirmBars := 0
-
-if shortPending and bar_index > shortArmBar
-    if open < shortGateRef and close < shortGateRef
-        shortConfirmBars += 1
-        if shortConfirmBars >= reclaimCandles
-            entryPrice = shortEntryLevel
-            slPriceRaw = (not na(lastPivotHigh) and lastPivotHigh > entryPrice) ? lastPivotHigh : entryPrice * (1 + slFallbackPercent)
-            slPrice    = math.min(slPriceRaw, entryPrice * (1 + maxSlPercent))
-            riskDist   = slPrice - entryPrice
-            tp1Price   = entryPrice - riskDist * tp1RMultiple
-            tp2Price   = entryPrice - riskDist * tp2RMultiple
-            qty        = (strategy.equity * riskPercent) / riskDist
-            strategy.cancel("APA Short")
-            strategy.entry("APA Short", strategy.short, qty=qty, limit=entryPrice)
-            strategy.exit("APA Short TP1", "APA Short", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
-            strategy.exit("APA Short TP2", "APA Short", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
-            lastShortSignalBar := bar_index
-            openEntryPrice     := entryPrice
-            openTp2Price       := tp2Price
-            openIsLong         := false
-            tp1Filled          := false
-            shortPending       := false
-    else
-        shortPending      := false
-        shortConfirmBars  := 0
+    entryPrice = originLow
+    // SL op de bovenkant van de recente (lokale) range/structuur - het
+    // laatste pivot-high - met een percentage-fallback als dat er niet is
+    // of aan de verkeerde kant van entry ligt.
+    slPriceRaw = (not na(lastPivotHigh) and lastPivotHigh > entryPrice) ? lastPivotHigh : entryPrice * (1 + slFallbackPercent)
+    // Kap de SL-afstand af op maxSlPercent als het pivot-punt te ver weg ligt.
+    slPrice    = math.min(slPriceRaw, entryPrice * (1 + maxSlPercent))
+    riskDist   = slPrice - entryPrice
+    tp1Price   = entryPrice - riskDist * tp1RMultiple
+    tp2Price   = entryPrice - riskDist * tp2RMultiple
+    tp3Price   = entryPrice - riskDist * tp3RMultiple
+    strategy.cancel("APA Short")
+    strategy.entry("APA Short", strategy.short, limit=entryPrice)
+    strategy.exit("APA Short TP1", "APA Short", qty_percent=tp1Portion, stop=slPrice, limit=tp1Price)
+    strategy.exit("APA Short TP2", "APA Short", qty_percent=tp2Portion, stop=slPrice, limit=tp2Price)
+    strategy.exit("APA Short TP3", "APA Short", qty_percent=tp3Portion, stop=slPrice, limit=tp3Price)
+    lastShortSignalBar := bar_index
+    openEntryPrice := entryPrice
+    openTp2Price   := tp2Price
+    openTp3Price   := tp3Price
+    openIsLong     := false
+    tp1Filled       := false
 
 // Detecteer een gedeeltelijke sluiting (TP1 geraakt) via een afname van de
 // positiegrootte terwijl er nog een positie open staat, en verplaats dan
-// de SL van het resterende deel (TP2) naar de entry-prijs.
+// de SL van het resterende deel (TP2 + TP3) naar de entry-prijs.
 if not tp1Filled and strategy.position_size != 0 and math.abs(strategy.position_size) < math.abs(strategy.position_size[1])
     tp1Filled := true
     if openIsLong
         strategy.exit("APA Long TP2", "APA Long", qty_percent=tp2Portion, stop=openEntryPrice, limit=openTp2Price)
+        strategy.exit("APA Long TP3", "APA Long", qty_percent=tp3Portion, stop=openEntryPrice, limit=openTp3Price)
     else
         strategy.exit("APA Short TP2", "APA Short", qty_percent=tp2Portion, stop=openEntryPrice, limit=openTp2Price)
+        strategy.exit("APA Short TP3", "APA Short", qty_percent=tp3Portion, stop=openEntryPrice, limit=openTp3Price)
 
 if strategy.position_size == 0
     tp1Filled := false
